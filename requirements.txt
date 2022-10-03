@@ -1,0 +1,9 @@
+
+
+# main
+numpy==1.23.3
+pyglet==1.5.15
+
+
+## Alternatives
+# pygame==2.1.2
