@@ -1,6 +1,6 @@
 import numpy as np
 import pyglet
-from src.testing import grid
+from src.game import game_grid
 
 # Use dims of x10 pixels
 window_dims = (800, 600)
@@ -11,25 +11,27 @@ batch = pyglet.graphics.Batch()
 
 
 # ---- Grid ----
-cell_size = 10
-grid_dims = (window_dims[0]//cell_size, window_dims[1]//cell_size)
-grid = np.zeros(grid_dims, dtype='object')
+grid = game_grid.Grid(10, window_dims)
+# grid.draw_to(batch, 'bw')
 
+# bleeps = grid.test_grid()
+# for row in bleeps:
+#     for square in row:
+#         square.batch = batch
 
-col_gap = 10
-for x in range(grid.shape[0]):
-    col_gap *= -1
-    for y in range(grid.shape[1]):
-        col_gap *= -1
-        col = 110 + col_gap
-        grid[x, y] = pyglet.shapes.Rectangle(x*10, y*10, 10, 10, color=(col, col, col), batch=batch)
+# ==== Update ====
+def update(dt):
+    pass
+
 
 
 # ==== Draw ====
 @window.event
 def on_draw():
     window.clear()
+    grid.draw_to(batch, 'bw')
     batch.draw()
 
 if __name__ == '__main__':
+    pyglet.clock.schedule_interval(update, 1/120.0)
     pyglet.app.run()
