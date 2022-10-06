@@ -3,28 +3,24 @@
 
 
 ## Speed
-Try using Numba from the beginning. Perhaps even Cuda?
-
+### Speed improvements
+- Try using Numba from the beginning. Perhaps even Cuda?
+### Should implement "game speed" measurer?
 
 ## Aesthetics
-### Draw square random noise
-it makes the noise every time a square is drawn. Need to be every time an object is made...
-
-
-Remake board with TILE objects?
 
 
 ## Design
 ### Continuous movement
 - instead of doing grid-movement, maybe do continuous movement, but render it on a grid...? probably not?
 
+### "Tile" objects
+- Not sure if it's a good idea to turn everything into objects yet.
+    - I suppose the game only slows down once you start changing all their bits?
+    - not sure....
 
-### Make a "tile" object? 
 
+## Utility
 
-### Agent movement:
-
-level 1 of grid:
-    - at every timestep the agent returns their x,y
-    - at every timestep the grid is reset and the agents are placed in order
-        - conflicts resolved depending on who ate who
+# Coming up:
+- implement controls

@@ -31,6 +31,7 @@ class Grid:
 
         self.layers = 4
         self.grid = np.zeros((self.layers, *self.dims))
+        self.agents = []
 
         # make colors
         self.mk_color_map()
@@ -40,79 +41,104 @@ class Grid:
             print(f"loaded: {floor_file}")
             self.grid[0] = map_utils.import_map_floor(floor_file)
 
-    # ==== TESTING ==========================================================
-    def running_square(self, counter, batch):
-        y = counter // self.dims[0] % self.dims[1]
-        x = counter % self.dims[0]
-        # print(x,y)
-        self.grid[1] = 0
-        self.grid[1, x, y] = 1
-        rgbo = [(255, 255, 255), 255]
-        square = self.draw_square(1, x, y, rgbo, batch)
-        return square
+    # ==== TESTING ===========================================================
 
-    # ==== UDATE ============================================================
-    def update(self):
+    # ==== UPDATE =============================================================
+    def update(self, dt):
+        # agents
+        self.grid[1] = 0
+        self.update_agents(dt)
+    
+    # ==== DRAW ==============================================================
+    def draw(self, batch):
+        # agents
+        # draw_agents()
         pass
 
-    # ==== DRAWING STUFF ====================================================
-    def init_grid(self, batch, rand_col=None):
-        # Setting up...
-        self.squares = np.zeros(self.grid.shape, dtype='object')
-        
-        # Making Floor
+    # ==== AGENTS ============================================================
+    def update_agents(self, dt):
+        data = []
+        for agent in self.agents:
+            agent.update(dt, self.grid)
+            data.append(agent.data())
+        for entry in data:
+            self.grid[1][entry[0]] = entry[1]
+
+    def draw_agents(self, batch):
+        """drawing agents"""
+        agent_squares = []
+        for agent in self.agents:
+            square = self.draw_square(agent.x, agent.y, agent.rgbo, batch)
+            agent_squares.append(square)
+        return agent_squares
+
+    # ---------
+    def add_agent(self, agent):
+        self.agents.append(agent)
+
+    def running_square(self, counter):
+        y = counter // self.dims[0] % self.dims[1]
+        x = counter % self.dims[0]
+        return (x, y), 1
+
+    # ==== GRID ==============================================================
+    def make_floor(self, batch, rand_col=None):
         l = 0 
+        self.squares = np.zeros(self.grid.shape, dtype='object')
         for x, row in enumerate(self.grid[l]):
             for y, val in enumerate(row):
                 if rand_col:
                     rgbo = randomize_color(self.color_map['env'][val], rand_col)
                 else:
                     rgbo = self.color_map['env'][val]
-                self.squares[l, x, y] = self.draw_square(l, x, y, rgbo, batch)
+                self.squares[l, x, y] = self.draw_square(x, y, rgbo, batch)
 
-        # Making Agents
-        # l = 1
-        # for l, layer in enumerate(self.grid):
-        # for x, row in enumerate(layer):
-        #     for y, _ in enumerate(row):
-        #         self.squares[l, x, y] = self.draw_square(l, x, y, batch)
+    def draw_text(self):
+        pass
     
-    def draw_square(self, l, x, y, rgbo, batch):
-        """
-        draws the square of appropriate size, color and offset
-        """
-        if l != 0 and self.grid[l, x, y] == 0:
-            return
-
-        # make square
+    # ==== UTILITY ===========================================================
+    def draw_square(self, x, y, rgbo, batch):
+        """draws the square of appropriate size, color and offset"""
         square = pyglet.shapes.Rectangle(
             (x+1)*self.cell_size, (y+1)*self.cell_size, 
             self.cell_size, self.cell_size, 
             color=rgbo[0], batch=batch)
         square.opacity = rgbo[1]
-
         return square
 
     def mk_color_map(self):
-        env_rgbo = {
+        env = {
             0 : [[20,  20,  20 ], 255],
             1 : [[100, 100, 100], 255]
         }
 
-        char_rgbo = {
-            1 : [(200, 200, 200), 255],
-            2 : [(255, 0,   0  ), 255],
-            3 : [(0,   255, 0  ), 255],
-            4 : [(0,   0,   255), 255]
+        agents = {
+            1 : [(255, 0,   0  ), 255],
+            2 : [(0,   255, 0  ), 255],
+            3 : [(0,   0,   255), 255],
+            99 : [(200, 200, 200), 255]
         }
 
         self.color_map = {
-            'env'    : env_rgbo,
-            'agents' : char_rgbo
+            'env'    : env,
+            'agents' : agents
         }
 
 
 ### %%%% UTILS %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+class FPS:
+    def __init__(self):
+        self.fps_sum = 0
+        self.dt_sum = 0
+    
+    def update(self, dt):
+        self.fps_sum += 1
+        self.dt_sum += dt
+        if self.dt_sum > 1:
+            print(self.fps_sum)
+            self.dt_sum = 0
+            self.fps_sum = 0
 
 def randomize_color(rgbo, type, amount=10):
     if type == 'col':
@@ -120,3 +146,6 @@ def randomize_color(rgbo, type, amount=10):
     elif type == 'bw':
         rgb = np.array(rgbo[0]) + np.random.randint(-amount, amount)
     return [rgb, rgbo[1]]
+
+
+
