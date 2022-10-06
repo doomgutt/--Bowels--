@@ -57,12 +57,10 @@ class Grid:
 
     # ==== AGENTS ============================================================
     def update_agents(self, dt):
-        data = []
+        # data = []
         for agent in self.agents:
             agent.update(dt, self.grid)
-            data.append(agent.data())
-        for entry in data:
-            self.grid[1][entry[0]] = entry[1]
+            self.grid[1, agent.x, agent.y] = agent.id
 
     def draw_agents(self, batch):
         """drawing agents"""

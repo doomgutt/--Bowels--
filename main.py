@@ -15,9 +15,13 @@ grid = game_grid.Grid(10, window_dims, 'default_map.png')
 grid.make_floor(batch, rand_col='bw')
 fps_counter = game_grid.FPS()
 
-# add agents
+# ==== Agents ====
 grid.add_agent(creatures.Agent(grid))
-grid.add_agent(creatures.Running_Square(grid))
+# grid.add_agent(creatures.Running_Square(grid))
+
+# ==== Controls ====
+for agent in grid.agents:
+    window.push_handlers(agent.key_handler)
 
 # ==== Update ====
 def update(dt):
