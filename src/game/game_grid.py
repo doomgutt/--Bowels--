@@ -60,13 +60,13 @@ class Grid:
         # data = []
         for agent in self.agents:
             agent.update(dt, self.grid)
-            self.grid[1, agent.x, agent.y] = agent.id
+            self.grid[1, agent.xy[0], agent.xy[1]] = agent.id
 
     def draw_agents(self, batch):
         """drawing agents"""
         agent_squares = []
         for agent in self.agents:
-            square = self.draw_square(agent.x, agent.y, agent.rgbo, batch)
+            square = self.draw_square(*agent.xy, agent.rgbo, batch)
             agent_squares.append(square)
         return agent_squares
 

@@ -1,16 +1,22 @@
 import numpy as np
+from src.utility import utils
 from pyglet.window import key
 
-class Agent:
-    def __init__(self, grid, controls=None):
+class Creature:
+    def __init__(self, grid):
         self.grid_ref = grid
-        self.x = 10
-        self.y = 10
+
+        # movement
+        self.xy = [10, 10]
+        self.dt_xy = [0, 0]
+        self.dt_xy_sum = [0, 0]
+        self.speed = 30
+
+        # stats
         self.id = 99
-        self.speed = 1
-        self.controls = controls
         self.rgbo = [[255, 255, 255], 255]
-        self.dt_counter = 0
+
+        # controls
         self.key_handler = key.KeyStateHandler()
         self.controls = {
             "up"   : key.UP, 
@@ -22,35 +28,53 @@ class Agent:
     def update(self, dt, grid):
         # get latest grid info
         self.grid_ref = grid
+        
         # move
-        self.move(grid, dt)
-            
-    def move(self, grid, dt):
+        self.update_dt(dt)
+        self.move()
+
+    def update_dt(self, dt):
         if self.key_handler[self.controls["up"]]:  # up
-            new_y = self.y + self.speed
-            if not self.wall_check(self.x, new_y):
-                self.y = new_y
+            self.dt_xy[1] = dt * self.speed
         elif self.key_handler[self.controls["down"]]:  # down
-            new_y = self.y - self.speed
-            if not self.wall_check(self.x, new_y):
-                self.y = new_y
+            self.dt_xy[1] = -dt * self.speed
+        else:
+            self.dt_xy[1] = 0
 
         if self.key_handler[self.controls["left"]]:  # left
-            new_x = self.x - self.speed
-            if not self.wall_check(new_x, self.y):
-                self.x = new_x
+            self.dt_xy[0] = -dt * self.speed
         elif self.key_handler[self.controls["right"]]:  # right
-            new_x = self.x + self.speed
-            if not self.wall_check(new_x, self.y):
-                self.x = new_x
+            self.dt_xy[0] = dt * self.speed
+        else:
+            self.dt_xy[0] = 0
+    
+    def move(self):
+        for n, val in enumerate(self.dt_xy):
 
-    def wall_check(self, x, y):
-        if self.grid_ref[0, x, y] == 0:
-            return False
-        elif self.grid_ref[0, x, y] == 1:
-            return True
+            # check for opposite motion
+            if not utils.same_sign(val, self.dt_xy_sum[n]):
+                self.dt_xy_sum[n] = 0
 
-class Toe(Agent):
+            # add dt
+            self.dt_xy_sum[n] += val
+
+            # check threshold and wall, then move
+            sum_abs = abs(self.dt_xy_sum[n])
+            if sum_abs >= 1:
+                move_val = round(self.dt_xy_sum[n]/sum_abs)
+                # if not self.wall_check(move_val, n):
+                self.xy = self.wall_check(move_val, n)
+                self.dt_xy_sum = [0, 0]
+
+    def wall_check(self, move_val, xy_ind):
+        new_xy = self.xy.copy()
+        new_xy[xy_ind] += move_val
+        if self.grid_ref[0, new_xy[0], new_xy[1]] == 0:
+            return new_xy
+        elif self.grid_ref[0, new_xy[0], new_xy[1]] == 1:
+            return self.xy
+
+class Toe(Creature):
     def __init__(self, pos, grid):
         super().__init__(grid)
         self.x = pos[0]
@@ -58,7 +82,7 @@ class Toe(Agent):
         self.speed = 4
         self.rgbo = [[255, 255, 0], 255]
 
-class Ear(Agent):
+class Ear(Creature):
     def __init__(self, pos, grid):
         super().__init__(grid)
         self.x = pos[0]
@@ -66,7 +90,7 @@ class Ear(Agent):
         self.speed = 4
         self.rgbo = [[255, 0, 0], 255]
 
-class Nose(Agent):
+class Nose(Creature):
     def __init__(self, pos, grid):
         super().__init__(grid)
         self.x = pos[0]
@@ -74,7 +98,7 @@ class Nose(Agent):
         self.speed = 4
         self.rgbo = [[0, 255, 0], 255]
 
-class Running_Square(Agent):
+class Running_Square(Creature):
     def __init__(self, grid):
         super().__init__(grid)
         self.rgbo = [[255, 0, 0], 255]
@@ -88,6 +112,3 @@ class Running_Square(Agent):
 
     def update(self, dt, grid):
         super().update(dt, grid)
-        # self.x = self.counter % grid.shape[-2]
-        # self.y = self.counter // grid.shape[-2] % grid.shape[-1]
-        # self.counter += 1

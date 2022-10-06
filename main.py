@@ -16,7 +16,7 @@ grid.make_floor(batch, rand_col='bw')
 fps_counter = game_grid.FPS()
 
 # ==== Agents ====
-grid.add_agent(creatures.Agent(grid))
+grid.add_agent(creatures.Creature(grid))
 # grid.add_agent(creatures.Running_Square(grid))
 
 # ==== Controls ====
