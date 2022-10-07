@@ -65,11 +65,6 @@ class Grid:
     #         pass
 
     # ==== AGENTS ============================================================
-    def update_agents(self, dt):
-        # data = []
-        for agent in self.agents:
-            agent.update(dt, self)
-            self.grid[1, agent.xy[0], agent.xy[1]] = agent.id
 
     def draw_agents(self):
         """drawing agents"""
@@ -142,3 +137,18 @@ class Grid:
 
 
 ### %%%% UTILS %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+
+
+
+##############################################################################
+#### OLD CODE ################################################################
+##############################################################################
+
+
+# ==== AGENTS ============================================================
+    # def update_agents(self, dt):
+    #     for agent in self.agents:
+    #         agent.update(dt, self)
+    #         self.grid[1, agent.xy[0], agent.xy[1]] = agent.id

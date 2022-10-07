@@ -12,13 +12,14 @@ cell_size = 10
 window = pyglet.window.Window(*window_dims)
 batch1 = pyglet.graphics.Batch()
 group1 = pyglet.graphics.Group()
+clock1 = pyglet.clock.get_default()
 
 # ==== Grid ====
 grid = discrete_space.Grid(cell_size, window_dims, batch1, group1, 'default_map.png')
 grid.make_floor(rand_col='bw')
 
 # ==== Agents ====
-grid.add_agent(creatures.Creature(grid))
+grid.add_agent(creatures.Creature(grid, clock1))
 # grid.add_agent(creatures.Running_Square(grid))
 
 # ==== Controls ====
