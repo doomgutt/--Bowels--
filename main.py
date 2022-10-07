@@ -3,20 +3,19 @@ import numpy as np
 from src.game import discrete_space
 from src.game import creatures
 from src.game import senses
-from src.game import graphics
-
+# =========================================================
 # Use dims of x10 pixels
 window_dims = (800, 600)
 cell_size = 10
 
-# ==== Make Window ====
+# ==== Pyglet Setup ====
 window = pyglet.window.Window(*window_dims)
-batch = pyglet.graphics.Batch()
+batch1 = pyglet.graphics.Batch()
+group1 = pyglet.graphics.Group()
 
 # ==== Grid ====
-grid = discrete_space.Grid(cell_size, window_dims, 'default_map.png')
-grid.make_floor(batch, rand_col='bw')
-fps_counter = graphics.FPS()
+grid = discrete_space.Grid(cell_size, window_dims, batch1, group1, 'default_map.png')
+grid.make_floor(rand_col='bw')
 
 # ==== Agents ====
 grid.add_agent(creatures.Creature(grid))
@@ -28,22 +27,23 @@ for agent in grid.agents:
 
 # ==== Update ====
 def update(dt):
-    fps_counter.update(dt)
+    # print(f"FPS is {pyglet.clock.get_fps()}", end="\r")
     grid.update(dt)
-
 
 # ==== Draw ====
 @window.event
 def on_draw():
+    agents = grid.draw_agents()
+    sight = grid.agents[0].draw_sight(batch1, cell_size)
     window.clear()
-    agents = grid.draw_agents(batch)
-    sight = grid.agents[0].draw_sight(batch, cell_size)
-    batch.draw()
+    batch1.draw()
 
 # ==== Debug ====
 # for agent in grid.agents:
 #     # agent.debug = True
 #     pass
+
+# ==== TESTING ====
 
 # ==== RUN ====
 if __name__ == '__main__':

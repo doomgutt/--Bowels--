@@ -2,11 +2,20 @@
 # Stuff I should do/consider doing
 
 ## THE LIST
-- sound
-- vision
-- smell
-- ??more??
-
+- Senses
+    - sound
+    - vision
+    - smell
+- Motor
+    - body parts?
+        - legs
+        - claws?
+    - Mouths
+        - bite off x body parts
+        - cause "PAIN" 
+- Body size?
+    - circles?
+    - grow in half-squares?
 
 ## Coming up:
 
@@ -30,3 +39,8 @@
 
 
 ### Utility
+
+
+# Thought dump
+- Try moving shapes instead of re-drawing them??
+
