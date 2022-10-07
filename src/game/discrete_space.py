@@ -1,6 +1,7 @@
 import numpy as np
 import pyglet
 from src.game import map_utils
+from src.game import graphics
 
 """
 Grid layers:
@@ -55,6 +56,12 @@ class Grid:
         # draw_agents()
         pass
 
+    # ==== SENSES ============================================================
+    def draw_senses(self, batch):
+        sense_groups = []
+        for agent in self.agents:
+            pass
+
     # ==== AGENTS ============================================================
     def update_agents(self, dt):
         # data = []
@@ -86,7 +93,7 @@ class Grid:
         for x, row in enumerate(self.grid[l]):
             for y, val in enumerate(row):
                 if rand_col:
-                    rgbo = randomize_color(self.color_map['env'][val], rand_col)
+                    rgbo = graphics.randomize_color(self.color_map['env'][val], rand_col)
                 else:
                     rgbo = self.color_map['env'][val]
                 self.squares[l, x, y] = self.draw_square(x, y, rgbo, batch)
@@ -125,25 +132,7 @@ class Grid:
 
 ### %%%% UTILS %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-class FPS:
-    def __init__(self):
-        self.fps_sum = 0
-        self.dt_sum = 0
-    
-    def update(self, dt):
-        self.fps_sum += 1
-        self.dt_sum += dt
-        if self.dt_sum > 1:
-            print(self.fps_sum)
-            self.dt_sum = 0
-            self.fps_sum = 0
 
-def randomize_color(rgbo, type, amount=10):
-    if type == 'col':
-        rgb = np.array(rgbo[0]) + np.random.randint(-amount, amount, 3)
-    elif type == 'bw':
-        rgb = np.array(rgbo[0]) + np.random.randint(-amount, amount)
-    return [rgb, rgbo[1]]
 
 
 

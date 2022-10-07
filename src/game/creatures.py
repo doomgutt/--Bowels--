@@ -1,6 +1,8 @@
 import numpy as np
-from src.utility import utils
+import pyglet
 from pyglet.window import key
+from src.utility import utils
+from src.game import senses
 
 class Creature:
     def __init__(self, grid):
@@ -24,6 +26,9 @@ class Creature:
             "left" : key.LEFT, 
             "right": key.RIGHT
         }
+
+        # debug
+        self.debug = False
 
     def update(self, dt, grid):
         # get latest grid info
@@ -73,6 +78,19 @@ class Creature:
             return new_xy
         elif self.grid_ref[0, new_xy[0], new_xy[1]] == 1:
             return self.xy
+
+    # ==== DEBUG ====
+    def draw_sight(self, batch, cell_size=10):
+        px = 2
+        squares = []
+        radius = 10
+        sight_circle = senses.radial(60) * radius
+        shift = 15 - px/2 # +10 for grid shift, +5 for half square -1 for pix size
+        sight_circle[0] += self.xy[0]*cell_size + shift
+        sight_circle[1] += self.xy[1]*cell_size + shift
+        for p in sight_circle.T:
+            squares.append(pyglet.shapes.Rectangle(*p, px, px, batch=batch))
+        return squares
 
 class Toe(Creature):
     def __init__(self, pos, grid):
