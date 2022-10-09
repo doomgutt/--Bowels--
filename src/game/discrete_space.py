@@ -32,8 +32,8 @@ class Grid:
                             window_dims[1]//self.cell_size)
         self.dims = np.array(self.max_dims) - 2
 
-        self.layers = 4
-        self.grid = np.zeros((self.layers, *self.dims))
+        self.number_of_layers = 4
+        self.layers = np.zeros((self.number_of_layers, *self.dims))
         self.agents = []
 
         # make colors
@@ -42,15 +42,16 @@ class Grid:
         # Populate grid
         if floor_file:
             print(f"loaded: {floor_file}")
-            self.grid[0] = map_utils.import_map_floor(floor_file)
+            self.layers[0] = map_utils.import_map_floor(floor_file)
 
     # ==== TESTING ===========================================================
 
     # ==== UPDATE =============================================================
     def update(self, dt):
         # agents
-        self.grid[1] = 0
-        self.update_agents(dt)
+        self.layers[1] = 0
+        # pass
+        # self.update_agents(dt)
     
     # ==== DRAW ==============================================================
     # def draw(self, batch):
@@ -66,15 +67,6 @@ class Grid:
 
     # ==== AGENTS ============================================================
 
-    def draw_agents(self):
-        """drawing agents"""
-        agent_draws = []
-        for agent in self.agents:
-            # a_draw = self.draw_circle(*agent.xy, agent.rgbo)
-            a_draw = self.draw_square(*agent.xy, agent.rgbo)
-            agent_draws.append(a_draw)
-        return agent_draws
-
     # ---------
     def add_agent(self, agent):
         self.agents.append(agent)
@@ -87,8 +79,8 @@ class Grid:
     # ==== GRID ==============================================================
     def make_floor(self, rand_col=None):
         l = 0 
-        self.squares = np.zeros(self.grid.shape, dtype='object')
-        for x, row in enumerate(self.grid[l]):
+        self.squares = np.zeros(self.layers.shape, dtype='object')
+        for x, row in enumerate(self.layers[l]):
             for y, val in enumerate(row):
                 if rand_col:
                     rgbo = graphics.randomize_color(self.color_map['env'][val], rand_col)
@@ -151,4 +143,13 @@ class Grid:
     # def update_agents(self, dt):
     #     for agent in self.agents:
     #         agent.update(dt, self)
-    #         self.grid[1, agent.xy[0], agent.xy[1]] = agent.id
+    #         self.layers[1, agent.xy[0], agent.xy[1]] = agent.id
+
+    # def draw_agents(self):
+    #     """drawing agents"""
+    #     agent_draws = []
+    #     for agent in self.agents:
+    #         # a_draw = self.draw_circle(*agent.xy, agent.rgbo)
+    #         a_draw = self.draw_square(*agent.xy, agent.rgbo)
+    #         agent_draws.append(a_draw)
+    #     return agent_draws

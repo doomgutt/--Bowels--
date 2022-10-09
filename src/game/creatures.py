@@ -5,14 +5,17 @@ from src.utility import utils
 from src.game import senses
 
 class Creature:
-    def __init__(self, game_grid, clock):
+    def __init__(self, game_grid, clock, batch, group):
         # pyglet setup
         self.game_grid = game_grid
         self.clock = clock
 
         # movement
-        self.xy = [10, 10]
+        self.xy = np.array([10, 10])
         self.speed = 30
+
+        # clock
+        clock.schedule_interval(self.move, 1/self.speed)
 
         # body
         self.size = 1
@@ -24,37 +27,46 @@ class Creature:
         self.id = 99
         self.rgbo = [[255, 255, 255], 255]
 
+        # sprite
+        self.sprite = pyglet.shapes.Rectangle(
+            (self.xy[0] + 1) * game_grid.cell_size,
+            (self.xy[1] + 1) * game_grid.cell_size, 
+            self.size * game_grid.cell_size,
+            self.size * game_grid.cell_size, 
+            color=self.rgbo[0], batch=batch, group=group)
+        self.sprite.opacity = self.rgbo[1]
+
         # controls
         self.key_handler = key.KeyStateHandler()
         self.controls = {
             "up"   : key.UP, 
             "down" : key.DOWN, 
             "left" : key.LEFT, 
-            "right": key.RIGHT
-        }
+            "right": key.RIGHT}
 
         # debug
         self.debug = False
-        clock.schedule_interval(self.move, 1/self.speed)
 
     # ==== Movement ====
     def move(self, dt):
         if self.key_handler[self.controls["up"]]:  # up
-            if self.no_wall(self.xy[0], self.xy[1]+1):
-                self.xy[1] += 1
+            if self.no_wall(self.xy+[0,1]):
+                self.xy += [0,1]
         elif self.key_handler[self.controls["down"]]:  # down
-            if self.no_wall(self.xy[0], self.xy[1]-1):
-                self.xy[1] += -1
+            if self.no_wall(self.xy-[0,1]):
+                self.xy -= [0,1]
 
         if self.key_handler[self.controls["left"]]:  # left
-            if self.no_wall(self.xy[0]-1, self.xy[1]):
-                self.xy[0] += -1
+            if self.no_wall(self.xy-[1,0]):
+                self.xy -= [1,0]
         elif self.key_handler[self.controls["right"]]:  # right
-            if self.no_wall(self.xy[0]+1, self.xy[1]):
-                self.xy[0] += 1
+            if self.no_wall(self.xy+[1,0]):
+                self.xy += [1,0]
+        
+        self.sprite.position = (self.xy+1)*self.game_grid.cell_size
 
-    def no_wall(self, x, y):
-        if self.game_grid.grid[0, x, y] == 1:
+    def no_wall(self, xy):
+        if self.game_grid.layers[0, xy[0], xy[1]] == 1:
             return False
         else:
             return True
@@ -186,7 +198,7 @@ class Running_Square(Creature):
     # def wall_check(self, move_val, xy_ind):
     #     new_xy = self.xy.copy()
     #     new_xy[xy_ind] += move_val
-    #     if self.game_grid.grid[0, new_xy[0], new_xy[1]] == 0:
+    #     if self.game_grid.layers[0, new_xy[0], new_xy[1]] == 0:
     #         return new_xy
-    #     elif self.game_grid.grid[0, new_xy[0], new_xy[1]] == 1:
+    #     elif self.game_grid.layers[0, new_xy[0], new_xy[1]] == 1:
     #         return self.xy

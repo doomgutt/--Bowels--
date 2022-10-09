@@ -43,4 +43,4 @@
 
 # Thought dump
 - Try moving shapes instead of re-drawing them??
-
+    - attach them to agents

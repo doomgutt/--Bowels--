@@ -1,5 +1,6 @@
 import pyglet
 import numpy as np
+from src.game import graphics
 from src.game import discrete_space
 from src.game import creatures
 from src.game import senses
@@ -13,13 +14,14 @@ window = pyglet.window.Window(*window_dims)
 batch1 = pyglet.graphics.Batch()
 group1 = pyglet.graphics.Group()
 clock1 = pyglet.clock.get_default()
+clock1.schedule_interval(graphics.printFPS, 1)
 
 # ==== Grid ====
 grid = discrete_space.Grid(cell_size, window_dims, batch1, group1, 'default_map.png')
 grid.make_floor(rand_col='bw')
 
 # ==== Agents ====
-grid.add_agent(creatures.Creature(grid, clock1))
+grid.add_agent(creatures.Creature(grid, clock1, batch1, group1))
 # grid.add_agent(creatures.Running_Square(grid))
 
 # ==== Controls ====
@@ -34,7 +36,6 @@ def update(dt):
 # ==== Draw ====
 @window.event
 def on_draw():
-    agents = grid.draw_agents()
     sight = grid.agents[0].draw_sight(batch1, cell_size)
     window.clear()
     batch1.draw()
@@ -45,6 +46,9 @@ def on_draw():
 #     pass
 
 # ==== TESTING ====
+light_boi = senses.LightSource(grid, (20, 20), batch1, group1)
+light_boi.get_vertices(0)
+
 
 # ==== RUN ====
 if __name__ == '__main__':
