@@ -48,10 +48,7 @@ class Grid:
 
     # ==== UPDATE =============================================================
     def update(self, dt):
-        # agents
-        self.layers[1] = 0
-        # pass
-        # self.update_agents(dt)
+        self.agents_to_l1()
     
     # ==== DRAW ==============================================================
     # def draw(self, batch):
@@ -66,8 +63,11 @@ class Grid:
     #         pass
 
     # ==== AGENTS ============================================================
+    def agents_to_l1(self):
+        self.layers[1] = 0
+        for agent in self.agents:
+            self.layers[1, agent.xy[0], agent.xy[1]] = agent.id
 
-    # ---------
     def add_agent(self, agent):
         self.agents.append(agent)
 

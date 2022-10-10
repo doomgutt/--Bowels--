@@ -1,3 +1,4 @@
+from imp import load_source
 import pyglet
 import numpy as np
 from src.game import graphics
@@ -23,10 +24,17 @@ grid.make_floor(rand_col='bw')
 # ==== Agents ====
 grid.add_agent(creatures.Creature(grid, clock1, batch1, group1))
 # grid.add_agent(creatures.Running_Square(grid))
+grid.agents_to_l1()
 
 # ==== Controls ====
 for agent in grid.agents:
     window.push_handlers(agent.key_handler)
+
+# ==== Lights ====
+light_source_1 = senses.LightSource(grid, (20, 20), batch1, group1)
+# light_source_1.get_objects()
+# light_source_1.expanding_scope()
+light_source_1.attemptv2()
 
 # ==== Update ====
 def update(dt):
@@ -37,6 +45,7 @@ def update(dt):
 @window.event
 def on_draw():
     sight = grid.agents[0].draw_sight(batch1, cell_size)
+    # lbeams = light_source_1.draw_beams()
     window.clear()
     batch1.draw()
 
@@ -46,8 +55,6 @@ def on_draw():
 #     pass
 
 # ==== TESTING ====
-light_boi = senses.LightSource(grid, (20, 20), batch1, group1)
-light_boi.get_vertices(0)
 
 
 # ==== RUN ====
