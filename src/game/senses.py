@@ -1,5 +1,6 @@
 import numpy as np
 import pyglet
+import time
 
 def sight():
     pass
@@ -46,14 +47,35 @@ class LightSource:
             # if i == 5:
             #     break
     
-    def attemptv2(self):
-        self.center = self.xy + [0.5, 0.5]
+    def draw_surfaces(self):
         object_grid = self.all_objects_from_grid()
         object_anchors = np.transpose(np.nonzero(object_grid))
         edges_by_anchor = self.anchors_to_edgelists(object_anchors)
+        all_edges = edges_by_anchor.reshape((len(edges_by_anchor)*4, 4))
+
+    def attemptv2(self):
+        self.center = self.xy + [0.5, 0.5]
+        t0 = time.time()
+        object_grid = self.all_objects_from_grid()
+        t1 = time.time()
+        object_anchors = np.transpose(np.nonzero(object_grid))
+        t2 = time.time()
+        edges_by_anchor = self.anchors_to_edgelists(object_anchors)
+        t3 = time.time()
         closest = self.sort_edges_by_closest(edges_by_anchor)
+        t4 = time.time()
         lit = self.lit_vertices(closest)
-        return self.draw_beams(lit)
+        t5 = time.time()
+        beams = self.draw_beams(lit)
+        t6 = time.time()
+        print("=======================")
+        print(f"all_objects_from_grid time: {t1-t0}") 
+        print(f"object_anchors time: {t2-t1}") 
+        print(f"anchors_to_edgelists time: {t3-t2}") 
+        print(f"sort_edges_by_closest time: {t4-t3}") 
+        print(f"lit_vertices time: {t5-t4}") 
+        print(f"draw_beams time: {t6-t5}") 
+        return beams
 
     def sort_edges_by_closest(self, edges_by_anchor):
         all_edges = edges_by_anchor.reshape((len(edges_by_anchor)*4, 4))
@@ -73,6 +95,9 @@ class LightSource:
         return arc
     
     def lit_vertices(self, closest_edges):
+        # this shit takes AGES...
+        # like up 0.2s per go...
+        # that's like 5fps m8
         all_segments = []
         edge_idx = []
         for i, edge in enumerate(closest_edges):

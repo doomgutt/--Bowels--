@@ -42,5 +42,7 @@
 
 
 # Thought dump
-- Try moving shapes instead of re-drawing them??
-    - attach them to agents
+- So... the light works... but it fucking sucks
+- okay, how about... I make a function that calculates surfaces.
+    - and then apply light to it....
+    - based on the previous functions with square calculations etc....
