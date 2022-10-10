@@ -24,7 +24,7 @@ class Creature:
         # self.body_edges = 0
 
         # stats
-        self.id = 0
+        self.id = 99
         self.rgbo = [[255, 255, 255], 255]
 
         # sprite
@@ -46,7 +46,7 @@ class Creature:
 
         # debug
         self.debug = False
-        self.light = senses.LightSource(self.grid_ref, self.xy, batch, group)
+        # self.light = senses.LightSource(self.grid_ref, self.xy, batch, group)
 
     # ==== Movement ====
     def move(self, dt):
@@ -67,7 +67,7 @@ class Creature:
         self.sprite.position = (self.xy+1)*self.grid_ref.cell_size
 
         #debug
-        self.light.xy = self.xy
+        # self.light.xy = self.xy
 
     def no_wall(self, xy):
         if self.grid_ref.layers[0, xy[0], xy[1]] == 1:

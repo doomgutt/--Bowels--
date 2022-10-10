@@ -22,7 +22,6 @@ grid.make_floor(rand_col='bw')
 
 # ==== Agents ====
 grid.add_agent(creatures.Creature(grid, clock1, batch1, group1))
-# grid.add_agent(creatures.Running_Square(grid))
 grid.agents_to_l1()
 
 # ==== Controls ====
@@ -35,7 +34,6 @@ for agent in grid.agents:
 
 # ==== Update ====
 def update(dt):
-    # print(f"FPS is {pyglet.clock.get_fps()}", end="\r")
     grid.update(dt)
 
 # ==== Draw ====
@@ -43,7 +41,7 @@ def update(dt):
 @window.event
 def on_draw():
     sight = grid.agents[0].draw_sight(batch1, cell_size)
-    lbeams = grid.agents[0].light.attemptv2()
+    # walls = grid.draw_surfaces()
     window.clear()
     batch1.draw()
 

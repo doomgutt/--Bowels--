@@ -52,6 +52,17 @@ class LightSource:
         object_anchors = np.transpose(np.nonzero(object_grid))
         edges_by_anchor = self.anchors_to_edgelists(object_anchors)
         all_edges = edges_by_anchor.reshape((len(edges_by_anchor)*4, 4))
+        external_edges = self.rm_inside_edges(all_edges)
+        beams = []
+        for edge in external_edges:
+            beam = pyglet.shapes.Line(
+                *(edge[:2]+1)*self.grid_ref.cell_size,
+                *(edge[2:]+1)*self.grid_ref.cell_size,
+                width=2, 
+                batch=self.batch, group=self.group)
+            beam.opacity = 200
+            beams.append(beam)
+        return beams
 
     def attemptv2(self):
         self.center = self.xy + [0.5, 0.5]

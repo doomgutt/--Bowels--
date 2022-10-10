@@ -43,8 +43,12 @@ class Grid:
         if floor_file:
             print(f"loaded: {floor_file}")
             self.layers[0] = map_utils.import_map_floor(floor_file)
+        
+        # surfaces
+        self.wall_surfaces = self.calculate_surfces()
 
     # ==== TESTING ===========================================================
+
 
     # ==== UPDATE =============================================================
     def update(self, dt):
@@ -71,10 +75,6 @@ class Grid:
     def add_agent(self, agent):
         self.agents.append(agent)
 
-    def running_square(self, counter):
-        y = counter // self.dims[0] % self.dims[1]
-        x = counter % self.dims[0]
-        return (x, y), 1
 
     # ==== GRID ==============================================================
     def make_floor(self, rand_col=None):
@@ -88,9 +88,48 @@ class Grid:
                     rgbo = self.color_map['env'][val]
                 self.squares[l, x, y] = self.draw_square(x, y, rgbo)
 
-    def draw_text(self):
-        pass
-    
+    # ==== SURFACES ==========================================================
+    def draw_surfaces(self):
+        beams = []
+        for edge in self.wall_surfaces:
+            beam = pyglet.shapes.Line(
+                *(edge[:2]+1)*self.cell_size,
+                *(edge[2:]+1)*self.cell_size,
+                width=2, 
+                batch=self.batch, group=self.group)
+            beam.opacity = 200
+            beams.append(beam)
+        return beams
+
+    def calculate_surfces(self):
+        wall_coords = np.transpose(np.nonzero(self.layers[0]))
+        all_edges = np.concatenate(self.anchors_to_edges(wall_coords))
+        surfaces = self.surfaces_from_edges(all_edges)
+        return surfaces
+
+    def surfaces_from_edges(self, all_edges):
+        uniq, counts = np.unique(all_edges, return_counts=True, axis=0)
+        repeat_idx = np.nonzero(counts-1)[0]
+        external_only = np.delete(uniq, repeat_idx, axis=0)
+        return external_only
+
+    def anchors_to_edges(self, anchors):
+        """ edges must be done like this to be able to remove duplicates
+        [0, 0, 0, 1] ^
+        [0, 1, 1, 1] ->
+        [1, 0, 1, 1] ^
+        [0, 0, 1, 0] ->
+        """
+        edge_by_anchor = np.zeros((len(anchors), 4, 4))
+        for i, a in enumerate(anchors):
+            edge_by_anchor[i] = np.array([
+                [a[0],   a[1],   a[0],   a[1]+1],
+                [a[0],   a[1]+1, a[0]+1, a[1]+1],
+                [a[0]+1, a[1],   a[0]+1, a[1]+1],
+                [a[0],   a[1],   a[0]+1, a[1]]])
+        return edge_by_anchor
+
+
     # ==== UTILITY ===========================================================
     def draw_square(self, x, y, rgbo):
         """draws the square of appropriate size, color and offset"""
@@ -153,3 +192,8 @@ class Grid:
     #         a_draw = self.draw_square(*agent.xy, agent.rgbo)
     #         agent_draws.append(a_draw)
     #     return agent_draws
+
+    # def running_square(self, counter):
+    #     y = counter // self.dims[0] % self.dims[1]
+    #     x = counter % self.dims[0]
+    #     return (x, y), 1
