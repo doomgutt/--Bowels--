@@ -5,9 +5,9 @@ from src.utility import utils
 from src.game import senses
 
 class Creature:
-    def __init__(self, game_grid, clock, batch, group):
+    def __init__(self, grid_ref, clock, batch, group):
         # pyglet setup
-        self.game_grid = game_grid
+        self.grid_ref = grid_ref
         self.clock = clock
 
         # movement
@@ -24,15 +24,15 @@ class Creature:
         # self.body_edges = 0
 
         # stats
-        self.id = 99
+        self.id = 0
         self.rgbo = [[255, 255, 255], 255]
 
         # sprite
         self.sprite = pyglet.shapes.Rectangle(
-            (self.xy[0] + 1) * game_grid.cell_size,
-            (self.xy[1] + 1) * game_grid.cell_size, 
-            self.size * game_grid.cell_size,
-            self.size * game_grid.cell_size, 
+            (self.xy[0] + 1) * grid_ref.cell_size,
+            (self.xy[1] + 1) * grid_ref.cell_size, 
+            self.size * grid_ref.cell_size,
+            self.size * grid_ref.cell_size, 
             color=self.rgbo[0], batch=batch, group=group)
         self.sprite.opacity = self.rgbo[1]
 
@@ -46,6 +46,7 @@ class Creature:
 
         # debug
         self.debug = False
+        self.light = senses.LightSource(self.grid_ref, self.xy, batch, group)
 
     # ==== Movement ====
     def move(self, dt):
@@ -63,17 +64,20 @@ class Creature:
             if self.no_wall(self.xy+[1,0]):
                 self.xy += [1,0]
         
-        self.sprite.position = (self.xy+1)*self.game_grid.cell_size
+        self.sprite.position = (self.xy+1)*self.grid_ref.cell_size
+
+        #debug
+        self.light.xy = self.xy
 
     def no_wall(self, xy):
-        if self.game_grid.layers[0, xy[0], xy[1]] == 1:
+        if self.grid_ref.layers[0, xy[0], xy[1]] == 1:
             return False
         else:
             return True
 
     # ==== Body ====
     def body_center(self):
-        return self.xy + self.game_grid.cell_size/2
+        return self.xy + self.grid_ref.cell_size/2
 
 
     # def set_body(self):
@@ -89,7 +93,7 @@ class Creature:
         squares = []
         radius = 10
         sight_circle = senses.radial(60) * radius
-        shift = 15 - px/2 # +10 for game_grid shift, +5 for half square -1 for pix size
+        shift = 15 - px/2 # +10 for grid_ref shift, +5 for half square -1 for pix size
         sight_circle[0] += self.xy[0]*cell_size + shift
         sight_circle[1] += self.xy[1]*cell_size + shift
         for p in sight_circle.T:
@@ -97,32 +101,32 @@ class Creature:
         return squares
 
 class Toe(Creature):
-    def __init__(self, pos, game_grid):
-        super().__init__(game_grid)
+    def __init__(self, pos, grid_ref):
+        super().__init__(grid_ref)
         self.x = pos[0]
         self.y = pos[1]
         self.speed = 4
         self.rgbo = [[255, 255, 0], 255]
 
 class Ear(Creature):
-    def __init__(self, pos, game_grid):
-        super().__init__(game_grid)
+    def __init__(self, pos, grid_ref):
+        super().__init__(grid_ref)
         self.x = pos[0]
         self.y = pos[1]
         self.speed = 4
         self.rgbo = [[255, 0, 0], 255]
 
 class Nose(Creature):
-    def __init__(self, pos, game_grid):
-        super().__init__(game_grid)
+    def __init__(self, pos, grid_ref):
+        super().__init__(grid_ref)
         self.x = pos[0]
         self.y = pos[1]
         self.speed = 4
         self.rgbo = [[0, 255, 0], 255]
 
 class Running_Square(Creature):
-    def __init__(self, game_grid):
-        super().__init__(game_grid)
+    def __init__(self, grid_ref):
+        super().__init__(grid_ref)
         self.rgbo = [[255, 0, 0], 255]
         self.counter = 0
         self.controls = {
@@ -132,8 +136,8 @@ class Running_Square(Creature):
             "right": key.D
         }
 
-    def update(self, dt, game_grid):
-        super().update(dt, game_grid)
+    def update(self, dt, grid_ref):
+        super().update(dt, grid_ref)
 
 
 
@@ -150,9 +154,9 @@ class Running_Square(Creature):
 ##############################################################################
 
     # ==== Update ====
-    # def update(self, dt, game_grid):
-    #     # get latest game_grid info
-    #     self.game_grid = game_grid
+    # def update(self, dt, grid_ref):
+    #     # get latest grid_ref info
+    #     self.grid_ref = grid_ref
         
     #     # move
     #     # self.update_dt(dt)
@@ -198,7 +202,7 @@ class Running_Square(Creature):
     # def wall_check(self, move_val, xy_ind):
     #     new_xy = self.xy.copy()
     #     new_xy[xy_ind] += move_val
-    #     if self.game_grid.layers[0, new_xy[0], new_xy[1]] == 0:
+    #     if self.grid_ref.layers[0, new_xy[0], new_xy[1]] == 0:
     #         return new_xy
-    #     elif self.game_grid.layers[0, new_xy[0], new_xy[1]] == 1:
+    #     elif self.grid_ref.layers[0, new_xy[0], new_xy[1]] == 1:
     #         return self.xy

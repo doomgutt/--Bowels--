@@ -47,46 +47,56 @@ class LightSource:
             #     break
     
     def attemptv2(self):
+        self.center = self.xy + [0.5, 0.5]
         object_grid = self.all_objects_from_grid()
         object_anchors = np.transpose(np.nonzero(object_grid))
         edges_by_anchor = self.anchors_to_edgelists(object_anchors)
-        cl_idx, closest = self.closest_edges(edges_by_anchor)
+        closest = self.sort_edges_by_closest(edges_by_anchor)
+        lit = self.lit_vertices(closest)
+        return self.draw_beams(lit)
 
-        # debug
-        edge_pile = edges_by_anchor.reshape((len(edges_by_anchor)*4, 4))
-        # print(edges_by_anchor.shape)
-        # print(closest[:5])
-        # print(cl_idx[:5])
-        # print(edge_pile[cl_idx][:5])
-        # print(closest[-5:])
-        # print(cl_idx[-5:])
-        # print(edge_pile[cl_idx][-5:])
-        for edge in edge_pile:
-            a = self.edge_to_angle_segment(edge)
-            if (a[1] - a[0]) > 180:
-                print(a)
-
-    def closest_edges(self, edges_by_anchor):
+    def sort_edges_by_closest(self, edges_by_anchor):
         all_edges = edges_by_anchor.reshape((len(edges_by_anchor)*4, 4))
         dist_list = self.edge_distances(self.center, all_edges)
         closest_idx = np.argsort(dist_list.min(1))
-        closest = dist_list[closest_idx]
-        return closest_idx, closest
+        return all_edges[closest_idx]
 
     def edge_to_angle_segment(self, edge):
         points = edge.reshape(2,2).T
         rads = np.arctan2(points[0]-self.center[0], points[1]-self.center[1])
-        # full_rads = rads + (rads<0)*2*np.pi
-        # arc = np.sort(full_rads)
-        degs = np.degrees(rads)
-        full_degs = degs + (degs<0)*360
-        arc = np.sort(full_degs)
+        # could do same with rads, it's 1 line of code less lol
+        full_rads = rads + (rads<0)*2*np.pi
+        arc = np.sort(full_rads)
+        # degs = np.degrees(rads)
+        # full_degs = degs + (degs<0)*360
+        # arc = np.sort(full_degs)
         return arc
+    
+    def lit_vertices(self, closest_edges):
+        all_segments = []
+        edge_idx = []
+        for i, edge in enumerate(closest_edges):
+            new_seg = self.edge_to_angle_segment(edge)
+            if (new_seg[1] - new_seg[0]) > np.pi:
+                new_seg = np.flip(new_seg)
+            lower = True
+            upper = True
+            for seg in all_segments:
+                if seg[0] <= new_seg[0] <= seg[1]:
+                    lower = False
+                if seg[0] <= new_seg[1] <= seg[1]:
+                    upper = False
+            if lower or upper:
+                all_segments.append(new_seg)
+                edge_idx.append(i)
+        # all_segments = np.array(all_segments)
+        return closest_edges[edge_idx].reshape((len(edge_idx)*2, 2))
+
+    def segments_circle_asf_ASdf_Asdf(self):
+        pass
 
     # ==== LIGHT STUFF v1 =======================================
-    def draw_beams(self):
-        walls = np.transpose(np.nonzero(self.grid_ref.layers[0]))
-        vertices = self.get_light_vertices(self.center, walls)
+    def draw_beams(self, vertices):
         beams = []
         for v in vertices:
             beam = pyglet.shapes.Line(
@@ -94,6 +104,7 @@ class LightSource:
                 *(v+1)*self.grid_ref.cell_size,
                 width=1, 
                 batch=self.batch, group=self.group)
+            beam.opacity = 60
             beams.append(beam)
         return beams
 

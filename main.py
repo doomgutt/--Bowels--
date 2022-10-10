@@ -1,4 +1,3 @@
-from imp import load_source
 import pyglet
 import numpy as np
 from src.game import graphics
@@ -31,10 +30,8 @@ for agent in grid.agents:
     window.push_handlers(agent.key_handler)
 
 # ==== Lights ====
-light_source_1 = senses.LightSource(grid, (20, 20), batch1, group1)
-# light_source_1.get_objects()
-# light_source_1.expanding_scope()
-light_source_1.attemptv2()
+# light_source_1 = senses.LightSource(grid, (20, 20), batch1, group1)
+# light_source_1.attemptv2()
 
 # ==== Update ====
 def update(dt):
@@ -42,10 +39,11 @@ def update(dt):
     grid.update(dt)
 
 # ==== Draw ====
+
 @window.event
 def on_draw():
     sight = grid.agents[0].draw_sight(batch1, cell_size)
-    # lbeams = light_source_1.draw_beams()
+    lbeams = grid.agents[0].light.attemptv2()
     window.clear()
     batch1.draw()
 
