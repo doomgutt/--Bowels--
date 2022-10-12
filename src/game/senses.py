@@ -36,11 +36,15 @@ class LightSource:
         return self.lights_v01()
 
     # ==== LIGHT STUFF ==========================================
-    def beams_origin_to_vertices(self, vertices):
+    def beams_origin_to_vertices(self, vertices, xy=None):
+        if xy == None:
+            xy = self.center
+        else:
+            xy = self.xy
         beams = []
         for v in vertices:
             beam = pyglet.shapes.Line(
-                *(self.center+1)*self.grid_ref.cell_size,
+                *(xy+1)*self.grid_ref.cell_size,
                 *(v+1)*self.grid_ref.cell_size,
                 width=1, 
                 batch=self.batch, group=self.group)
@@ -74,52 +78,65 @@ class LightSource:
 
     def lights_v01(self):
         dims = self.grid_ref.dims
-        xy = self.xy
-        x_p = np.linspace(0, dims[0], dims[0]+1) + self.xy[0]# +0.5  ?
+        x_p = np.linspace(0, dims[0], dims[0]+1)# +0.5  ?
         x_m = -x_p
         degs = self.circular_direction1()
-        deg = degs[100]
+        deg = degs[130]
         slope = np.cos(deg)/np.sin(deg)
-        y_chunks = self.get_tiles(x_p, slope, 0)
+        # print(self.xy[1])
+        y_chunks = self.get_tiles(x_p, slope)
+        # print(y_chunks)
 
-        cutoff = 10
-        x_p = x_p[:10]
 
+        # draw
         drawn = []
-        drawn.append(self.draw_passed_sq(x_p, y_chunks))
+        cutoff = 10
+        x_p_shifted = x_p + self.xy[0]
+        x_p_shifted = x_p_shifted[:10]
 
-        vertices = np.array([x_p[cutoff-1], y_chunks[cutoff-1][-1]])[None]
-        # print(vertices)
-        beams = self.beams_origin_to_vertices(vertices)
+        # squares
+        drawn.append(self.draw_passed_sq(x_p_shifted, y_chunks))
+
+        # beams
+        cust_y = x_p[cutoff-1]*slope + self.xy[1]
+        vertices = np.array([x_p_shifted[cutoff-1], cust_y])[None]
+        beams = self.beams_origin_to_vertices(vertices, xy=True)
         drawn.append(beams)
         return drawn
 
-    def draw_passed_sq(self, x_s, y_chunks):
-        squares = []
-        for i, x in enumerate(x_s):
-            for y in y_chunks[i]:
-                # print(x, y)
-                square = self.grid_ref.draw_square(x, y, [[255, 255, 255], 70])
-                squares.append(square)
-        return squares
-
-    def get_tiles(self, xs, slope, y_shift):
+    def get_tiles(self, xs, slope):
         all_y_chunks = []
-        start = y_shift
-        for i, x in enumerate(xs):
+        start = self.xy[1]
+        for x in xs:
             new_y = x*slope
+            # print(start)
             if np.mod(new_y, 1) == 0:
-                start += int(new_y)
-                all_y_chunks.append([start, start+int(new_y)])
+                # all_y_chunks.append([start, start+int(new_y)])
+                all_y_chunks.append(list(range(start, start+int(new_y)+1)))
+                start = self.xy[1] + int(new_y)
             else:
-                all_y_chunks.append([start, start+np.ceil(new_y)])
-                start += np.floor(new_y)
-        return all_y_chunks
+                # all_y_chunks.append([start, start+np.ceil(new_y)])
+                # print(start+np.ceil(new_y).astype(int)+1)
+                all_y_chunks.append(list(range(start, start+np.ceil(new_y).astype(int)+1)))
+                start = self.xy[1] + np.floor(new_y).astype(int)
+        # print(all_y_chunks)
+        # print(y_shift)
+        y_ranges = None
+        return np.array(all_y_chunks)
 
     def circular_direction1(self, density=360):
         segments = np.linspace(0.0001, np.pi, density, endpoint=False)
         return segments
 
+    def draw_passed_sq(self, xs, y_chunks):
+        squares = []
+        # print(xs)
+        for i, x in enumerate(xs):
+            for y in y_chunks[i]:
+                # print(x, y)
+                square = self.grid_ref.draw_square(x, y, [[255, 255, 255], 70])
+                squares.append(square)
+        return squares
 
     # ==== Light Stuff v0 =======================================
     # runs at about 8fps

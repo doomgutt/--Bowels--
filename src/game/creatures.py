@@ -109,7 +109,7 @@ class Creature:
 
 class LightBoi(Creature):
     def __init__(self, *args) -> None:
-        rgbo = [[255, 215, 100], 255]
+        rgbo = [[255, 215, 100], 20]
         super().__init__(*args, rgbo=rgbo)
         self.light = senses.LightSource(self.grid_ref, self.xy, self.batch, self.group)
         self.id = 33
