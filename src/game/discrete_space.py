@@ -45,7 +45,7 @@ class Grid:
             self.layers[0] = map_utils.import_map_floor(floor_file)
         
         # surfaces
-        self.wall_surfaces = self.calculate_surfces()
+        self.wall_surfaces = self.calculate_surfaces()
 
     # ==== TESTING ===========================================================
 
@@ -55,10 +55,9 @@ class Grid:
         self.agents_to_l1()
     
     # ==== DRAW ==============================================================
-    # def draw(self, batch):
-    #     # agents
-    #     # draw_agents()
-    #     pass
+    def draw(self):
+        # return self.draw_surfaces()
+        return None
 
     # ==== SENSES ============================================================
     # def draw_senses(self, batch):
@@ -101,11 +100,17 @@ class Grid:
             beams.append(beam)
         return beams
 
-    def calculate_surfces(self):
+    def calculate_surfaces(self):
         wall_coords = np.transpose(np.nonzero(self.layers[0]))
         all_edges = np.concatenate(self.anchors_to_edges(wall_coords))
         surfaces = self.surfaces_from_edges(all_edges)
         return surfaces
+    
+    def connect_surfaces(self):
+        self.surface_list = []
+        new_surface = []
+        for edge in self.wall_surfaces:
+            pass
 
     def surfaces_from_edges(self, all_edges):
         uniq, counts = np.unique(all_edges, return_counts=True, axis=0)

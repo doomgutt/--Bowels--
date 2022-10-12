@@ -21,7 +21,7 @@ grid = discrete_space.Grid(cell_size, window_dims, batch1, group1, 'default_map.
 grid.make_floor(rand_col='bw')
 
 # ==== Agents ====
-grid.add_agent(creatures.Creature(grid, clock1, batch1, group1))
+grid.add_agent(creatures.LightBoi(grid, clock1, batch1, group1))
 grid.agents_to_l1()
 
 # ==== Controls ====
@@ -40,9 +40,18 @@ def update(dt):
 
 @window.event
 def on_draw():
-    sight = grid.agents[0].draw_sight(batch1, cell_size)
-    # walls = grid.draw_surfaces()
     window.clear()
+    # is there a better way to do this?
+    draw_pile = []
+    
+    # Grid
+    draw_pile.append(grid.draw())
+    
+    # Agents
+    for agent in grid.agents:
+        draw_pile.append(agent.draw())
+    
+    # Batch
     batch1.draw()
 
 # ==== Debug ====

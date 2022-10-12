@@ -5,10 +5,12 @@ from src.utility import utils
 from src.game import senses
 
 class Creature:
-    def __init__(self, grid_ref, clock, batch, group):
+    def __init__(self, grid_ref, clock, batch, group, rgbo=None):
         # pyglet setup
         self.grid_ref = grid_ref
         self.clock = clock
+        self.batch = batch
+        self.group = group
 
         # movement
         self.xy = np.array([10, 10])
@@ -25,16 +27,10 @@ class Creature:
 
         # stats
         self.id = 99
-        self.rgbo = [[255, 255, 255], 255]
+        self.rgbo = [[255, 255, 255], 255] if rgbo == None else rgbo
 
         # sprite
-        self.sprite = pyglet.shapes.Rectangle(
-            (self.xy[0] + 1) * grid_ref.cell_size,
-            (self.xy[1] + 1) * grid_ref.cell_size, 
-            self.size * grid_ref.cell_size,
-            self.size * grid_ref.cell_size, 
-            color=self.rgbo[0], batch=batch, group=group)
-        self.sprite.opacity = self.rgbo[1]
+        self.mk_sprite()
 
         # controls
         self.key_handler = key.KeyStateHandler()
@@ -46,7 +42,19 @@ class Creature:
 
         # debug
         self.debug = False
-        # self.light = senses.LightSource(self.grid_ref, self.xy, batch, group)
+
+    # ==== Sprite ====
+    def mk_sprite(self):
+        self.sprite = pyglet.shapes.Rectangle(
+            (self.xy[0] + 1) * self.grid_ref.cell_size,
+            (self.xy[1] + 1) * self.grid_ref.cell_size, 
+            self.size * self.grid_ref.cell_size,
+            self.size * self.grid_ref.cell_size, 
+            color=self.rgbo[0], batch=self.batch, group=self.group)
+        self.sprite.opacity = self.rgbo[1]
+
+    def draw(self):
+        pass
 
     # ==== Movement ====
     def move(self, dt):
@@ -67,7 +75,6 @@ class Creature:
         self.sprite.position = (self.xy+1)*self.grid_ref.cell_size
 
         #debug
-        # self.light.xy = self.xy
 
     def no_wall(self, xy):
         if self.grid_ref.layers[0, xy[0], xy[1]] == 1:
@@ -99,6 +106,23 @@ class Creature:
         for p in sight_circle.T:
             squares.append(pyglet.shapes.Rectangle(*p, px, px, batch=batch))
         return squares
+
+class LightBoi(Creature):
+    def __init__(self, *args) -> None:
+        rgbo = [[255, 215, 100], 255]
+        super().__init__(*args, rgbo=rgbo)
+        self.light = senses.LightSource(self.grid_ref, self.xy, self.batch, self.group)
+        self.id = 33
+        self.xy = np.array([30, 30])
+    
+    def move(self, dt):
+        super().move(dt)
+        self.light.xy = self.xy
+        self.light.center = self.xy + [0.5, 0.5]
+    
+    def draw(self):
+        super().draw()
+        return self.light.draw()
 
 class Toe(Creature):
     def __init__(self, pos, grid_ref):

@@ -28,9 +28,122 @@ class LightSource:
         # np.savetxt("testa", a, fmt='%i')
         # np.savetxt("testb", b, fmt='%i')
 
+    # ==== Draw =================================================
+    def draw(self):
+        # return self.lights_v2()
+        # return self.lights_v3()
+        return self.lights_v0()
+
+    # ==== LIGHT STUFF ==========================================
+    def beams_origin_to_vertices(self, vertices):
+        beams = []
+        for v in vertices:
+            beam = pyglet.shapes.Line(
+                *(self.center+1)*self.grid_ref.cell_size,
+                *(v+1.5)*self.grid_ref.cell_size,
+                width=1, 
+                batch=self.batch, group=self.group)
+            beam.opacity = 60
+            beams.append(beam)
+        return beams
+    
+    def triangles_origin_to_edges(self, edges):
+        triangles = []
+        for edge in edges:
+            tri = pyglet.shapes.Triangle(
+                *(self.center+1)*self.grid_ref.cell_size,
+                *(edge[2:]+1)*self.grid_ref.cell_size,
+                *(edge[:2]+1)*self.grid_ref.cell_size, 
+                color=(255, 255, 255), 
+                batch=self.batch, group=self.group)
+            tri.opacity = 40
+            triangles.append(tri)
+        return triangles
+
+    def edges_to_vertices(self, edges):
+        return edges.reshape((len(edges)*2, 2))
+    
+    # ==== Light Stuff v0 =======================================
+    # runs at about 8fps
+    def lights_v0(self):
+        circ_dirs = self.circular_directions(density=360)
+        dir_lines = self.mk_lines(circ_dirs, density=10)
+        endpoints = self.get_collisions(dir_lines)
+        beams = self.beams_origin_to_vertices(endpoints)
+        return beams
+        # return None
+
+    def get_collisions(self, dir_lines):
+        end_points = []
+        for line in dir_lines:
+            for i, point in enumerate(line):
+                point = point.round().astype(int)
+                # print(point)
+                if self.grid_ref.layers[0, point[0], point[1]] == 1:
+                    end_points.append(line[i])
+                    break
+        return end_points
+
+    def mk_lines(self, directions, density=10):
+        max_dims = self.grid_ref.dims
+        dist = 100
+        lines = np.zeros((len(directions), dist*density, 2))
+        line = np.linspace(0, dist, dist*density)
+        for i, deg in enumerate(directions):
+            x = line*np.sin(deg)+self.center[0]
+            y = line*np.cos(deg)+self.center[1]
+            lines[i] = np.array([x, y]).T
+        return lines
+
+    def circular_directions(self, density=360):
+        segments = np.linspace(0, 2*np.pi, density, endpoint=False)
+        return segments
+
+    # ==== Light Stuff v3 =======================================
+    def lights_v3(self):
+        outer_edges = self.end_of_map_edes()
+        vertices = self.edges_to_vertices(outer_edges)
+        beams = self.beams_origin_to_vertices(vertices)
+        return beams
+
+    def end_of_map_edes(self):
+        max_dims = self.grid_ref.max_dims
+        outer_edges = []
+        for x in range(max_dims[0]-1):
+            outer_edges.append([x, 0, x+1, 0])
+            outer_edges.append([x, max_dims[1], x+1, max_dims[1]])
+        for y in range(max_dims[1]-1):
+            outer_edges.append([0, y, 0, y+1])
+            outer_edges.append([max_dims[0], y, max_dims[0], y+1])
+        return np.array(outer_edges)
+
+    def triangles_to_surfaces(self):
+        surfaces = self.grid_ref.wall_surfaces
+        closest = self.sort_edges_by_closest(surfaces)
+        # edges = closest
+        lit = self.lit_edges(closest)
+        # lit_v = lit.reshape((len(lit)*2, 2))
+        # vertices = edges.reshape((len(edges)*2, 2))
+        return self.triangles_origin_to_edges(lit)
+
+    def beams_to_surfaces(self):
+        # get surfaces
+        surfaces = self.grid_ref.wall_surfaces
+        closest = self.sort_edges_by_closest(surfaces)
+        # edges = closest
+        lit = self.lit_edges(closest)
+        lit_v = lit.reshape((len(lit)*2, 2))
+        # vertices = edges.reshape((len(edges)*2, 2))
+        return self.beams_origin_to_vertices(lit_v)
+    
+    def edge_cleaner(self, surfaces):
+        closest = self.sort_edges_by_closest(surfaces)
+        pass
+
     # ==== Light Stuff v2 =======================================
     def all_objects_from_grid(self):
         return self.grid_ref.layers[0] + self.grid_ref.layers[1]
+        
 
     def expanding_scope(self):
         max_x, max_y = self.grid_ref.max_dims
@@ -46,25 +159,8 @@ class LightSource:
             #         print(x, y)
             # if i == 5:
             #     break
-    
-    def draw_surfaces(self):
-        object_grid = self.all_objects_from_grid()
-        object_anchors = np.transpose(np.nonzero(object_grid))
-        edges_by_anchor = self.anchors_to_edgelists(object_anchors)
-        all_edges = edges_by_anchor.reshape((len(edges_by_anchor)*4, 4))
-        external_edges = self.rm_inside_edges(all_edges)
-        beams = []
-        for edge in external_edges:
-            beam = pyglet.shapes.Line(
-                *(edge[:2]+1)*self.grid_ref.cell_size,
-                *(edge[2:]+1)*self.grid_ref.cell_size,
-                width=2, 
-                batch=self.batch, group=self.group)
-            beam.opacity = 200
-            beams.append(beam)
-        return beams
 
-    def attemptv2(self):
+    def lights_v2(self):
         self.center = self.xy + [0.5, 0.5]
         t0 = time.time()
         object_grid = self.all_objects_from_grid()
@@ -73,23 +169,24 @@ class LightSource:
         t2 = time.time()
         edges_by_anchor = self.anchors_to_edgelists(object_anchors)
         t3 = time.time()
-        closest = self.sort_edges_by_closest(edges_by_anchor)
+        all_edges = edges_by_anchor.reshape((len(edges_by_anchor)*4, 4))
+        closest = self.sort_edges_by_closest(all_edges)
         t4 = time.time()
-        lit = self.lit_vertices(closest)
+        lit = self.lit_edges(closest)
+        lit_v = lit.reshape((len(lit)*2, 2))
         t5 = time.time()
-        beams = self.draw_beams(lit)
+        beams = self.beams_origin_to_vertices(lit_v)
         t6 = time.time()
         print("=======================")
         print(f"all_objects_from_grid time: {t1-t0}") 
         print(f"object_anchors time: {t2-t1}") 
         print(f"anchors_to_edgelists time: {t3-t2}") 
         print(f"sort_edges_by_closest time: {t4-t3}") 
-        print(f"lit_vertices time: {t5-t4}") 
-        print(f"draw_beams time: {t6-t5}") 
+        print(f"lit_edges time: {t5-t4}") 
+        print(f"beams_origin_to_vertices time: {t6-t5}") 
         return beams
 
-    def sort_edges_by_closest(self, edges_by_anchor):
-        all_edges = edges_by_anchor.reshape((len(edges_by_anchor)*4, 4))
+    def sort_edges_by_closest(self, all_edges):
         dist_list = self.edge_distances(self.center, all_edges)
         closest_idx = np.argsort(dist_list.min(1))
         return all_edges[closest_idx]
@@ -97,15 +194,12 @@ class LightSource:
     def edge_to_angle_segment(self, edge):
         points = edge.reshape(2,2).T
         rads = np.arctan2(points[0]-self.center[0], points[1]-self.center[1])
-        # could do same with rads, it's 1 line of code less lol
         full_rads = rads + (rads<0)*2*np.pi
         arc = np.sort(full_rads)
-        # degs = np.degrees(rads)
-        # full_degs = degs + (degs<0)*360
-        # arc = np.sort(full_degs)
         return arc
     
-    def lit_vertices(self, closest_edges):
+    def lit_edges(self, closest_edges):
+        shift = 0
         # this shit takes AGES...
         # like up 0.2s per go...
         # that's like 5fps m8
@@ -118,33 +212,21 @@ class LightSource:
             lower = True
             upper = True
             for seg in all_segments:
-                if seg[0] <= new_seg[0] <= seg[1]:
+                if seg[0]-shift < new_seg[0] < seg[1]+shift:
                     lower = False
-                if seg[0] <= new_seg[1] <= seg[1]:
+                if seg[0]-shift < new_seg[1] < seg[1]+shift:
                     upper = False
             if lower or upper:
                 all_segments.append(new_seg)
                 edge_idx.append(i)
         # all_segments = np.array(all_segments)
-        return closest_edges[edge_idx].reshape((len(edge_idx)*2, 2))
+        return closest_edges[edge_idx]
 
     def segments_circle_asf_ASdf_Asdf(self):
         pass
 
     # ==== LIGHT STUFF v1 =======================================
-    def draw_beams(self, vertices):
-        beams = []
-        for v in vertices:
-            beam = pyglet.shapes.Line(
-                *(self.center+1)*self.grid_ref.cell_size,
-                *(v+1)*self.grid_ref.cell_size,
-                width=1, 
-                batch=self.batch, group=self.group)
-            beam.opacity = 60
-            beams.append(beam)
-        return beams
-
-    def get_light_vertices(self, origin, obj_anchors):
+    def lights_v1(self, origin, obj_anchors):
         edges_by_anchor = self.anchors_to_edgelists(obj_anchors)
         print(f"all edges: {len(edges_by_anchor)*4}")
         all_light_edges = []
