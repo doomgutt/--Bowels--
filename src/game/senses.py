@@ -23,7 +23,9 @@ class LightSource:
         self.step = step
         self.coord_shift = np.array([[[0, 0], [0, 1], [1, 1], [1, 0]]])
 
+        # light?
         self.cycle = 0
+        self.mk_light_map()
         # a = grid.layers[0]
         # b = self.blow_up_grid_layer(0)
         # np.savetxt("testa", a, fmt='%i')
@@ -34,7 +36,8 @@ class LightSource:
         # return self.lights_v2()
         # return self.lights_v3()
         # return self.lights_v0()
-        return self.lights_v01()
+        return self.debug_light_map2()
+        # return self.lights_v01()
 
     # ==== LIGHT STUFF ==========================================
     def beams_origin_to_vertices(self, vertices, xy=None):
@@ -44,6 +47,8 @@ class LightSource:
             xy = self.xy
         beams = []
         for v in vertices:
+            # print(v)
+            # print(xy)
             beam = pyglet.shapes.Line(
                 *(xy+1)*self.grid_ref.cell_size,
                 *(v+1)*self.grid_ref.cell_size,
@@ -79,50 +84,239 @@ class LightSource:
 
     def lights_v01(self):
         dims = self.grid_ref.dims
-        x_p = np.linspace(0, dims[0], dims[0]+1)# +0.5  ?
+        x_p = np.linspace(0, dims[0], dims[0]+1).astype(int)# +0.5  ?
         x_m = -x_p
         degs = self.circular_direction1()
         deg = degs[self.cycle]
-        slope = np.cos(deg)/np.sin(deg)
-        y_chunks = self.get_tiles(x_p, slope)
 
+        # slope'n'stuff
+        slope = np.cos(deg)/np.sin(deg)
+        y_chunks_p = self.get_tiles(x_p, slope)
+        y_chunks_m = [-np.array(y) for y in y_chunks_p]
+        # print(y_chunks_p[0])
 
         # draw
         drawn = []
         cutoff = 10
         x_p_shifted = x_p + self.xy[0]
-        x_p_shifted = x_p_shifted[:10]
+        x_m_shifted = x_m + self.xy[0]
 
         # squares
-        drawn.append(self.draw_passed_sq(x_p_shifted, y_chunks))
+        drawn.append(self.draw_light_tiles(x_p_shifted, y_chunks_p))
 
         # beams
         cust_y = x_p[cutoff-1]*slope + self.xy[1]
-        vertices = np.array([x_p_shifted[cutoff-1], cust_y])[None]
+        vertices = []
+        vertices.append(np.array([x_p_shifted, cust_y]))
+        # vertices.append(np.array([x_m_shifted, -cust_y]))
         beams = self.beams_origin_to_vertices(vertices, xy=True)
+        drawn.append(beams)
+
+        
+        return drawn
+
+    # ??
+
+
+
+    def mk_light_map(self, radial_density=360, center=True):
+        """
+        px: positive x
+        nx: negative x
+
+        the idea is
+        1. have a pre-made grid of ALL potential tiles
+        2. shift that grid around and check light_beams for where they should end
+        """
+        light_map = []
+
+        # --- x_range setup ---
+        dims = self.grid_ref.dims
+        self.x_range = np.linspace(0, dims[0], dims[0]+1)+0.5
+        self.x_range = np.concatenate((np.array([0]), self.x_range))
+
+        # --- radial setup ---
+        self.radial = np.linspace(0.001, np.pi, radial_density, endpoint=False)
+
+        # --- getting the light tiles ---
+
+        # --- return ---
+        self.light_map = light_map
+    
+    def move_light_map(self):
+        """
+        I think I don't need vertices, I think just setting y's is enough
+        - every beam can be a list of y's that's capped off at a wall.
+        """
+        for d, beam in enumerate(self.light_map):  # 360 degs
+            for i, x in beam:  # +/- dims?
+                for vertex in x:
+                    pass
+
+    def debug_light_map(self):
+        pass
+
+    def get_tiles2_backup(self, xs, slope):
+        y_lim = self.grid_ref.dims[1]
+        y = (xs*slope).astype(int)
+        all_y_chunks = []
+        for i in range(len(y)-1):
+            upper = y[i+1]
+            if y[i+1] > y_lim:
+                upper = y_lim
+            all_y_chunks.append(np.arange(y[i], upper+1))
+        return all_y_chunks
+
+    def shift_y_chunks(self, xy, y_chunks_p, y_chunks_n):
+        """
+        Shift the 'light_map' to the position of the light source.
+        """
+        dims = self.grid_ref.dims
+        y_chunks_p_shifted = []
+        y_chunks_n_shifted = []
+        for pchunk in y_chunks_p:
+            shifted_chunk = xy[1]+pchunk
+            y_chunks_p_shifted.append(shifted_chunk[shifted_chunk<dims[1]])
+        for nchunk in y_chunks_n:
+            shifted_chunk = xy[1]+nchunk-1
+            y_chunks_n_shifted.append(shifted_chunk[shifted_chunk>0])
+        return y_chunks_p_shifted, y_chunks_n_shifted
+
+    def get_tiles2(self, xs, slope):
+        """
+        Because the center of the tile is at (0.5, 0.5) this
+        function uses a custom `off_grid` variable instead of
+        `np.floor` in order to get the values for the grid.
+        """
+        y_lim = self.grid_ref.dims[1]-0.5
+        y = xs*slope
+        off_grid = np.linspace(-0.5, y_lim, int(y_lim+0.5)+1)
+        all_y_chunks = []
+        for i in range(len(y)-1):
+            lower = y[i]
+            upper = y[i+1]
+            if y[i+1] > y_lim:
+                upper = y_lim
+            y_range = off_grid[(lower-1 <= off_grid) & (off_grid <= upper)]
+            all_y_chunks.append(y_range)
+        return all_y_chunks
+    
+    def get_tiles2_2(self, xs, slope):
+        """
+        Because the center of the tile is at (0.5, 0.5) this
+        function uses a custom `off_grid` variable instead of
+        `np.floor` in order to get the values for the grid.
+        """
+        y_lim = self.grid_ref.dims[1]-0.5
+        y = xs*slope
+        off_grid = -np.linspace(-0.5, y_lim, int(y_lim+0.5)+1)
+        all_y_chunks = []
+        for i in range(len(y)-1):
+            lower = y[i]
+            upper = y[i+1]
+            # print("----")
+            # print(lower)
+            # print(upper)
+            if y[i+1] < -y_lim:
+                upper = -y_lim
+            y_range = off_grid[(lower >= off_grid) & (off_grid >= upper-1)]
+            all_y_chunks.append(y_range)
+        return all_y_chunks
+        
+
+    def debug_light_map2(self):
+        xy = self.center
+        x_range = self.x_range
+        radial = self.radial
+
+        # radial stuff
+        deg_chunk = self.cycle
+        deg = radial[deg_chunk]
+        slope = np.cos(deg)/np.sin(deg)
+
+        # y chunks
+        if slope >= 0:
+            y_chunks_p = self.get_tiles2(x_range, slope)
+        elif slope < 0:
+            y_chunks_p = self.get_tiles2_2(x_range, slope)
+        y_chunks_n = [-chunk for chunk in y_chunks_p]
+
+        # move and cut y_chunks
+        py_shifted, ny_shifted = self.shift_y_chunks(xy, y_chunks_p, y_chunks_n)
+
+        # print(py_shifted)
+        # return None
+
+        # draw
+        drawn = []
+        px_coords = self.xy[0] + np.arange(len(x_range))
+        nx_coords = self.xy[0] - np.arange(len(x_range))
+
+        # squares
+        drawn.append(self.draw_light_tiles(px_coords[:-1], py_shifted))
+        drawn.append(self.draw_light_tiles(nx_coords[:-1], ny_shifted))
+
+        # beams
+        beam_px =  x_range[-1]       + xy[0]
+        beam_py =  x_range[-1]*slope + xy[1]
+        beam_nx = -x_range[-1]       + xy[0]
+        beam_ny = -x_range[-1]*slope + xy[1]
+        vertices = []
+        vertices.append(np.array([beam_px, beam_py]))
+        vertices.append(np.array([beam_nx, beam_ny]))
+        beams = self.beams_origin_to_vertices(vertices)
         drawn.append(beams)
         return drawn
 
+    def calculating_light(self):
+        """
+        px: positive x
+        nx: negative x
+
+        the idea is
+        1. have a pre-made grid of ALL potential tiles
+        2. shift that grid around and check light_beams for where they should end
+        """
+        
+        # setup
+        dims = self.grid_ref.dims
+
+        px_start = int(np.ceil(self.center[0]))
+        px_range = np.linspace(px_start, dims[0], dims[0]-px_start+1).astype(int)
+        
+        nx_start = int(np.floor(self.center[0]))
+        nx_range = np.flip(np.linspace(0, nx_start, nx_start+1).astype(int))
+        
+        print(nx_range)
+        print(px_range)
+
+
+    # drawing
+    def draw_light_tiles(self, xs, y_chunks):
+        squares = []
+        for i, x in enumerate(xs):
+            for y in y_chunks[i]:
+                if self.grid_ref.layers[0, int(x), int(y)] == 1:
+                    return squares
+                square = self.grid_ref.draw_square(x, y, [[200, 200, 0], 70])
+                squares.append(square)
+        return squares
+
+    # calculating
     def get_tiles(self, xs, slope):
+        y_lim = self.grid_ref.dims[1]
         y = (xs*slope + self.xy[1]).astype(int)
-        # if y[1] < y[0]:
-        #     y = np.flip(y)
         all_y_chunks = []
         for i in range(len(y)-1):
-            all_y_chunks.append(list(range(y[i], y[i+1]+1)))
+            upper = y[i+1]
+            if y[i+1] > y_lim:
+                upper = y_lim
+            all_y_chunks.append(list(range(y[i], upper+1)))
         return np.array(all_y_chunks)
 
     def circular_direction1(self, density=360):
         segments = np.linspace(0.001, np.pi, density, endpoint=False)
         return segments
-
-    def draw_passed_sq(self, xs, y_chunks):
-        squares = []
-        for i, x in enumerate(xs):
-            for y in y_chunks[i]:
-                square = self.grid_ref.draw_square(x, y, [[255, 255, 255], 70])
-                squares.append(square)
-        return squares
 
     # ==== Light Stuff v0 =======================================
     # runs at about 8fps
