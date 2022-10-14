@@ -119,6 +119,7 @@ class LightBoi(Creature):
         super().move(dt)
         self.light.xy = self.xy
         self.light.center = self.xy + [0.5, 0.5]
+        self.light.cycle += 1 % 360
     
     def draw(self):
         super().draw()

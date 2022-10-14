@@ -23,6 +23,7 @@ class LightSource:
         self.step = step
         self.coord_shift = np.array([[[0, 0], [0, 1], [1, 1], [1, 0]]])
 
+        self.cycle = 0
         # a = grid.layers[0]
         # b = self.blow_up_grid_layer(0)
         # np.savetxt("testa", a, fmt='%i')
@@ -81,11 +82,9 @@ class LightSource:
         x_p = np.linspace(0, dims[0], dims[0]+1)# +0.5  ?
         x_m = -x_p
         degs = self.circular_direction1()
-        deg = degs[130]
+        deg = degs[self.cycle]
         slope = np.cos(deg)/np.sin(deg)
-        # print(self.xy[1])
         y_chunks = self.get_tiles(x_p, slope)
-        # print(y_chunks)
 
 
         # draw
@@ -105,35 +104,22 @@ class LightSource:
         return drawn
 
     def get_tiles(self, xs, slope):
+        y = (xs*slope + self.xy[1]).astype(int)
+        # if y[1] < y[0]:
+        #     y = np.flip(y)
         all_y_chunks = []
-        start = self.xy[1]
-        for x in xs:
-            new_y = x*slope
-            # print(start)
-            if np.mod(new_y, 1) == 0:
-                # all_y_chunks.append([start, start+int(new_y)])
-                all_y_chunks.append(list(range(start, start+int(new_y)+1)))
-                start = self.xy[1] + int(new_y)
-            else:
-                # all_y_chunks.append([start, start+np.ceil(new_y)])
-                # print(start+np.ceil(new_y).astype(int)+1)
-                all_y_chunks.append(list(range(start, start+np.ceil(new_y).astype(int)+1)))
-                start = self.xy[1] + np.floor(new_y).astype(int)
-        # print(all_y_chunks)
-        # print(y_shift)
-        y_ranges = None
+        for i in range(len(y)-1):
+            all_y_chunks.append(list(range(y[i], y[i+1]+1)))
         return np.array(all_y_chunks)
 
     def circular_direction1(self, density=360):
-        segments = np.linspace(0.0001, np.pi, density, endpoint=False)
+        segments = np.linspace(0.001, np.pi, density, endpoint=False)
         return segments
 
     def draw_passed_sq(self, xs, y_chunks):
         squares = []
-        # print(xs)
         for i, x in enumerate(xs):
             for y in y_chunks[i]:
-                # print(x, y)
                 square = self.grid_ref.draw_square(x, y, [[255, 255, 255], 70])
                 squares.append(square)
         return squares
