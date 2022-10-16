@@ -1,5 +1,5 @@
 import numpy as np
-
+from numba import jit
 
 class LightSource:
     def __init__(self, grid, xy, batch, group):
@@ -132,7 +132,11 @@ class LightSource:
 
     def lights_v02(self):
         drawn = []
-        self.update_lmap()
+        dims = tuple(self.grid_ref.dims)
+        xy = tuple(self.xy)
+        self.active_lmap = update_lmap(
+            xy, self.x_range, dims,
+            self.grid_ref.layers, self.p_lmap, self.n_lmap)
         drawn.append(self.draw_lmap())
         return drawn
 
@@ -149,56 +153,6 @@ class LightSource:
                     x, y, [[200, 200, 0], brightness])
                 squares.append(square)
         return squares
-
-    def update_lmap(self):
-        """
-        run to update the light map and break off the rays depending on
-        current xy
-        """
-
-        self.active_lmap = np.zeros(self.grid_ref.dims)
-        plmap = self.xy[1] + self.p_lmap
-        nlmap = self.xy[1] + self.n_lmap
-        xp = self.xy[0] + self.x_range
-        xn = self.xy[0] - self.x_range
-
-        brightness = 20
-        # brightness = 100
-
-        for ray in plmap:
-            for i, y_chunk in enumerate(ray):
-                check = False
-                for y in y_chunk:
-                    if np.isnan(y) or (y > self.grid_ref.dims[1]):
-                        break
-                    py = int(y)
-                    try:
-                        check = (self.grid_ref.layers[0, xp[i], py] == 1)
-                    except IndexError:
-                        break
-                    if check:
-                        break
-                    self.active_lmap[xp[i], py] += brightness
-                if check:
-                    break
-        
-        for ray in nlmap:
-            for i, y_chunk in enumerate(ray):
-                check = False
-                for y in y_chunk:
-                    if np.isnan(y) or (y > self.grid_ref.dims[1]):
-                        break
-                    py = int(y)
-                    try:
-                        check = (self.grid_ref.layers[0, xn[i], py] == 1)
-                    except IndexError:
-                        break
-                    if check:
-                        break
-                    self.active_lmap[xn[i], py] += brightness
-                if check:
-                    break
-
 
     def make_light_map_v02(self):
         """
@@ -241,6 +195,57 @@ class LightSource:
                 y_range = (off_grid[cond]+0.5).astype(int)
                 self.p_lmap[radial_idx][i][0:len(y_range)] = y_range
 
+
+@jit(nopython=True)
+def update_lmap(xy, x_range, dims, layers, p_lmap, n_lmap):
+    """
+    run to update the light map and break off the rays depending on
+    current xy
+    """
+    active_lmap = np.empty(dims, np.float64)
+    plmap = xy[1] + p_lmap
+    nlmap = xy[1] + n_lmap
+    # xp = xy[0] + x_range
+    # xn = xy[0] - x_range
+
+    # brightness = 20
+    # # brightness = 100
+
+    # for ray in plmap:
+    #     for i, y_chunk in enumerate(ray):
+    #         check = False
+    #         for y in y_chunk:
+    #             if np.isnan(y) or (y > dims[1]):
+    #                 break
+    #             py = int(y)
+    #             try:
+    #                 check = (layers[0, xp[i], py] == 1)
+    #             except IndexError:
+    #                 break
+    #             if check:
+    #                 break
+    #             active_lmap[xp[i], py] += brightness
+    #         if check:
+    #             break
+    
+    # for ray in nlmap:
+    #     for i, y_chunk in enumerate(ray):
+    #         check = False
+    #         for y in y_chunk:
+    #             if np.isnan(y) or (y > dims[1]):
+    #                 break
+    #             py = int(y)
+    #             try:
+    #                 check = (layers[0, xn[i], py] == 1)
+    #             except IndexError:
+    #                 break
+    #             if check:
+    #                 break
+    #             active_lmap[xn[i], py] += brightness
+    #         if check:
+    #             break
+    
+    return active_lmap
 
 
     # ==== LIGHT STUFF ==========================================

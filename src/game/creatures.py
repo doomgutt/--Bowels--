@@ -2,7 +2,7 @@ import numpy as np
 import pyglet
 from pyglet.window import key
 from src.utility import utils
-from src.game import light
+from src.game import light_numba as light
 
 class Creature:
     def __init__(self, grid_ref, clock, batch, group, rgbo=None):
@@ -99,7 +99,7 @@ class Creature:
     #     px = 2
     #     squares = []
     #     radius = 10
-    #     sight_circle = light.radial(60) * radius
+    #     sight_circle = light_numba.radial(60) * radius
     #     shift = 15 - px/2 # +10 for grid_ref shift, +5 for half square -1 for pix size
     #     sight_circle[0] += self.xy[0]*cell_size + shift
     #     sight_circle[1] += self.xy[1]*cell_size + shift
