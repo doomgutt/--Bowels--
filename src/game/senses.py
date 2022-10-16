@@ -24,8 +24,6 @@ class LightSource:
         self.coord_shift = np.array([[[0, 0], [0, 1], [1, 1], [1, 0]]])
 
         # light?
-        self.cycle = 0
-        self.light_density = 360
         self.mk_light_map()
         # a = grid.layers[0]
         # b = self.blow_up_grid_layer(0)
@@ -82,6 +80,17 @@ class LightSource:
     def lights_v01(self):
         return self.debug_light_map2()
 
+    # drawing
+    def draw_light_tiles(self, xs, y_chunks):
+        squares = []
+        for i, x in enumerate(xs):
+            for y in y_chunks[i]:
+                if self.grid_ref.layers[0, int(x), int(y)] == 1:
+                    return squares
+                square = self.grid_ref.draw_square(x, y, [[200, 200, 0], 200])
+                squares.append(square)
+        return squares
+
     def mk_light_map(self):
         """
         px: positive x
@@ -94,20 +103,24 @@ class LightSource:
 
         # --- x_range setup ---
         dims = self.grid_ref.dims
-        self.x_range = np.linspace(0, dims[0], dims[0]+1)+0.5
-        self.x_range = np.concatenate((np.array([0]), self.x_range))
+        self.x_range = np.linspace(0, dims[0], dims[0], endpoint=False).astype(int)
 
         # --- radial setup ---
-        radial_density = self.light_density//2
-        self.radial = np.linspace(0.001, np.pi, radial_density, endpoint=False)
+        self.cycle = 0
+        self.light_density = 100  # has to be even to work well
+        self.radial = np.linspace(0.001, np.pi, self.light_density//2, endpoint=False)
+
+        # --- light map 2 ---
+        self.light_map2 = np.zeros((self.light_density, dims[0]*2, dims[1]*2))
 
         # --- getting the light tiles ---
         light_map = []
-        for rad in self.radial:
-            slope = np.cos(rad)/np.sin(rad)
+        for i, rad in enumerate(self.radial):
+            # new
+            self.get_ray(i)
 
-            # y chunks
-            y_chunks_p = self.get_tiles_all(self.x_range, slope)
+            # old
+            y_chunks_p = self.get_tiles_all(rad)
             y_chunks_n = [-chunk for chunk in y_chunks_p]
             light_map.append([y_chunks_p, y_chunks_n])
 
@@ -116,28 +129,35 @@ class LightSource:
 
     def debug_light_map2(self):
         drawn = []
+        # self.move_lmap2()
+        # drawn.append(self.draw_lmap2())
 
-        for i, rad in enumerate(self.radial):
-
+        drawn = self.old_draw()
+        return drawn
+    
+    def old_draw(self):
+        drawn = []
+        for i, _ in enumerate(self.radial):
             # y chunks
             y_chunks_p, y_chunks_n = self.light_map[i]
 
             # move and cut y_chunks
-            py_shifted, ny_shifted = self.shift_y_chunks(self.center, y_chunks_p, y_chunks_n)
+            py_shifted, ny_shifted = self.shift_y_chunks(
+                self.center, y_chunks_p, y_chunks_n)
 
             # draw
-            px_coords = self.xy[0] + np.arange(len(self.x_range))
-            nx_coords = self.xy[0] - np.arange(len(self.x_range))
+            px_coords = self.xy[0] + self.x_range
+            nx_coords = self.xy[0] - self.x_range
 
             # squares
             drawn.append(self.draw_light_tiles(px_coords[:-1], py_shifted))
             drawn.append(self.draw_light_tiles(nx_coords[:-1], ny_shifted))
 
             # beams
-            # beam_px =  self.x_range[-1]       + self.center[0]
-            # beam_py =  self.x_range[-1]*slope + self.center[1]
-            # beam_nx = -self.x_range[-1]       + self.center[0]
-            # beam_ny = -self.x_range[-1]*slope + self.center[1]
+            # beam_px =  self.x_range_center[-1]       + self.center[0]
+            # beam_py =  self.x_range_center[-1]*slope + self.center[1]
+            # beam_nx = -self.x_range_center[-1]       + self.center[0]
+            # beam_ny = -self.x_range_center[-1]*slope + self.center[1]
             # vertices = []
             # vertices.append(np.array([beam_px, beam_py]))
             # vertices.append(np.array([beam_nx, beam_ny]))
@@ -159,54 +179,110 @@ class LightSource:
             shifted_chunk = xy[1]+nchunk-1
             y_chunks_n_shifted.append(shifted_chunk[shifted_chunk > 0])
         return y_chunks_p_shifted, y_chunks_n_shifted
+    
+    def get_ray(self, radial_idx):
+        ray_angle = self.radial[radial_idx]
+        slope = np.cos(ray_angle)/np.sin(ray_angle)
 
-    def get_tiles_all(self, xs, slope):
+        y_lim = self.grid_ref.dims[1]-0.5
+        self.x_range_center = np.concatenate((np.array([0]), self.x_range+0.5))
+        y = self.x_range_center*slope
+        off_grid = np.linspace(-0.5, y_lim, int(y_lim+0.5)+1)
+
+
+        # pos slope
+        if y[0] <= y[-1]:
+            for i in range(len(y)-1):
+                cond = (y[i]-1 <= off_grid) & (off_grid <= y[i+1])
+                y_range = (off_grid[cond]+0.5).astype(int)
+
+                self.light_map2[radial_idx][i][y_range] = 1
+                self.light_map2[radial_idx+(self.light_density//2)][-i][y_range] = 1
+
+        # neg slope
+        elif y[0] > y[-1]:
+            off_grid = -off_grid
+            y_lim = - y_lim
+            y = np.clip(y, y_lim, 0)
+            for i in range(len(y)-1):
+                cond = (y[i] >= off_grid) & (off_grid >= y[i+1]-1)
+                y_range = (off_grid[cond]+0.5).astype(int)
+                
+                self.light_map2[radial_idx][i][y_range] = 1
+                self.light_map2[radial_idx+(self.light_density//2)][-i][y_range] = 1
+    
+    def move_lmap2(self):
+        shift = self.xy[0]
+        lmap = np.roll(self.light_map2, shift)
+        lmap[:, shift:] = 0
+        self.active_lmap = lmap
+        self.active_lmap = self.light_map2 + self.xy[1]
+        self.smushed_lmap = np.sum(self.active_lmap, axis=0)
+
+    def draw_lmap2(self):
+        squares = []
+        for y, row in enumerate(self.smushed_lmap):
+            for x, brightness in enumerate(row):
+                # print(brightness)
+                square = self.grid_ref.draw_square(x, y, [[200, 200, 0], brightness])
+                squares.append(square)
+        return squares
+
+        # squares = []
+        # halfway = int(self.light_density//2)
+        # for ray in self.active_lmap[:halfway]:
+        #     for x in self.x_range:
+        #         for y in ray[x]:
+        #             if self.grid_ref.layers[0, int(x), int(y)] == 1:
+        #                 return squares
+        #             square = self.grid_ref.draw_square(x, y, [[200, 200, 0], 200])
+        #             squares.append(square)
+        # for ray in self.active_lmap[halfway:]:
+        #     for x in self.x_range:
+        #         x = -x
+        #         for y in ray[x]:
+        #             if self.grid_ref.layers[0, int(x), int(y)] == 1:
+        #                 return squares
+        #             square = self.grid_ref.draw_square(x, y, [[200, 200, 0], 200])
+        #             squares.append(square)
+        # return squares
+
+
+
+    def get_tiles_all(self, ray_angle):
         """
         Because the center of the tile is at (0.5, 0.5) this
         function uses a custom `off_grid` variable instead of
         `np.floor` in order to get the values for the grid.
         """
 
-        y = xs*slope
+        slope = np.cos(ray_angle)/np.sin(ray_angle)
+        y_lim = self.grid_ref.dims[1]-0.5
+
+        self.x_range_center = np.concatenate((np.array([0]), self.x_range+0.5))
+        y = self.x_range_center*slope
+
         all_y_chunks = []
+        off_grid = np.linspace(-0.5, y_lim, int(y_lim+0.5)+1)
 
         # pos slope
-        if y[0] < y[-1]:
-            y_lim = self.grid_ref.dims[1]-0.5
-            y = xs*slope
-            off_grid = np.linspace(-0.5, y_lim, int(y_lim+0.5)+1)
+        if y[0] <= y[-1]:
             for i in range(len(y)-1):
-                lower = y[i]
-                upper = y[i+1]
-                if y[i+1] > y_lim:
-                    upper = y_lim
-                y_range = off_grid[(lower-1 <= off_grid) & (off_grid <= upper)]
+                cond = (y[i]-1 <= off_grid) & (off_grid <= y[i+1])
+                y_range = off_grid[cond]
                 all_y_chunks.append(y_range)
 
         # neg slope
         if y[0] > y[-1]:
-            y_lim = self.grid_ref.dims[1]-0.5
-            off_grid = -np.linspace(-0.5, y_lim, int(y_lim+0.5)+1)
+            off_grid = -off_grid
+            y_lim = - y_lim
+            y = np.clip(y, y_lim, 0)
             for i in range(len(y)-1):
-                lower = y[i]
-                upper = y[i+1]
-                if y[i+1] < -y_lim:
-                    upper = -y_lim
-                y_range = off_grid[(lower >= off_grid) & (off_grid >= upper-1)]
+                cond = (y[i] >= off_grid) & (off_grid >= y[i+1]-1)
+                y_range = off_grid[cond]
                 all_y_chunks.append(y_range)
+        
         return all_y_chunks
-
-    # drawing
-    def draw_light_tiles(self, xs, y_chunks):
-        squares = []
-        for i, x in enumerate(xs):
-            for y in y_chunks[i]:
-                if self.grid_ref.layers[0, int(x), int(y)] == 1:
-                    return squares
-                square = self.grid_ref.draw_square(x, y, [[200, 200, 0], 70])
-                squares.append(square)
-        return squares
-
 
     def circular_direction1(self, density=360):
         segments = np.linspace(0.001, np.pi, density, endpoint=False)
