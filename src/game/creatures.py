@@ -2,7 +2,7 @@ import numpy as np
 import pyglet
 from pyglet.window import key
 from src.utility import utils
-from src.game import senses
+from src.game import light
 
 class Creature:
     def __init__(self, grid_ref, clock, batch, group, rgbo=None):
@@ -95,23 +95,23 @@ class Creature:
     #     pass
 
     # ==== DEBUG ====
-    def draw_sight(self, batch, cell_size=10):
-        px = 2
-        squares = []
-        radius = 10
-        sight_circle = senses.radial(60) * radius
-        shift = 15 - px/2 # +10 for grid_ref shift, +5 for half square -1 for pix size
-        sight_circle[0] += self.xy[0]*cell_size + shift
-        sight_circle[1] += self.xy[1]*cell_size + shift
-        for p in sight_circle.T:
-            squares.append(pyglet.shapes.Rectangle(*p, px, px, batch=batch))
-        return squares
+    # def draw_sight(self, batch, cell_size=10):
+    #     px = 2
+    #     squares = []
+    #     radius = 10
+    #     sight_circle = light.radial(60) * radius
+    #     shift = 15 - px/2 # +10 for grid_ref shift, +5 for half square -1 for pix size
+    #     sight_circle[0] += self.xy[0]*cell_size + shift
+    #     sight_circle[1] += self.xy[1]*cell_size + shift
+    #     for p in sight_circle.T:
+    #         squares.append(pyglet.shapes.Rectangle(*p, px, px, batch=batch))
+    #     return squares
 
 class LightBoi(Creature):
     def __init__(self, *args) -> None:
         rgbo = [[255, 215, 100], 20]
         super().__init__(*args, rgbo=rgbo)
-        self.light = senses.LightSource(self.grid_ref, self.xy, self.batch, self.group)
+        self.light = light.LightSource(self.grid_ref, self.xy, self.batch, self.group)
         self.id = 33
         self.xy = np.array([30, 30])
     

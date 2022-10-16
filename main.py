@@ -1,9 +1,7 @@
 import pyglet
-import numpy as np
 from src.game import graphics
 from src.game import discrete_space
 from src.game import creatures
-from src.game import senses
 # =========================================================
 # Use dims of x10 pixels
 window_dims = (800, 600)
