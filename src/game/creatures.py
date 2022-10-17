@@ -1,9 +1,9 @@
 import numpy as np
 import pyglet
 from pyglet.window import key
-from src.utility import utils
-# from src.game import light_numba as light
-from src.game import light
+# from src.utility import utils
+from src.game import light_numba as light
+# from src.game import light
 
 class Creature:
     def __init__(self, grid_ref, clock, batch, group, rgbo=None):
@@ -107,6 +107,23 @@ class Creature:
     #     for p in sight_circle.T:
     #         squares.append(pyglet.shapes.Rectangle(*p, px, px, batch=batch))
     #     return squares
+
+class LightBoi2(Creature):
+    def __init__(self, *args) -> None:
+        rgbo = [[255, 215, 100], 20]
+        super().__init__(*args, rgbo=rgbo)
+        self.light = light.LightSource(self.grid_ref, self.xy, self.batch, self.group)
+        self.id = 33
+        self.xy = np.array([30, 30])
+    
+    def move(self, dt):
+        super().move(dt)
+        self.light.xy = self.xy
+        self.light.center = self.xy + [0.5, 0.5]
+    
+    def draw(self):
+        super().draw()
+        return self.light.draw()
 
 class LightBoi(Creature):
     def __init__(self, *args) -> None:
