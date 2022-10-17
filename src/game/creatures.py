@@ -2,7 +2,8 @@ import numpy as np
 import pyglet
 from pyglet.window import key
 from src.utility import utils
-from src.game import light_numba as light
+# from src.game import light_numba as light
+from src.game import light
 
 class Creature:
     def __init__(self, grid_ref, clock, batch, group, rgbo=None):
