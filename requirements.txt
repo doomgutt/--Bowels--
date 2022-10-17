@@ -1,4 +1,5 @@
-
+# local package
+-e .
 
 # main
 numpy==1.23.3
