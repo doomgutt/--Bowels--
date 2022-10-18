@@ -58,8 +58,8 @@ class LightSource:
         drawn.append(self.draw_lmap(light_grid))
         
         # beam lighting
-        ray_ends = self.get_light_rays(self.center, self.rays, grid)
-        drawn.append(self.beams_origin_to_vertices(ray_ends))
+        # ray_ends = self.get_light_rays(self.center, self.rays, grid)
+        # drawn.append(self.beams_origin_to_vertices(ray_ends))
 
         return drawn
     

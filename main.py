@@ -58,17 +58,25 @@ cell_size = 10
 
 # ==== Pyglet Setup ====
 window = pyglet.window.Window(*window_dims)
+
+# --- graphics --------
 batch1 = pyglet.graphics.Batch()
-group1 = pyglet.graphics.Group()
+group_0 = pyglet.graphics.OrderedGroup(0)
+group_1 = pyglet.graphics.OrderedGroup(1)
+group_2 = pyglet.graphics.OrderedGroup(2)
+group_3 = pyglet.graphics.OrderedGroup(3)
+# group1 = pyglet.graphics.Group()
+
+# --- time -------------
 clock1 = pyglet.clock.get_default()
 fps_display = graphics.fps_custom_display(window)
 
 # ==== Grid ====
-grid = discrete_space.Grid(cell_size, window_dims, batch1, group1, 'default_map.png')
-grid.make_floor(rand_col='bw')
+grid = discrete_space.Grid(cell_size, window_dims, batch1, group_0, 'default_map.png')
+# grid.make_floor(rand_col='bw')
 
 # ==== Agents ====
-grid.add_agent(creatures.LightBoi(grid, clock1, batch1, group1))
+grid.add_agent(creatures.LightBoi(grid, clock1, batch1, group_1))
 # grid.agents_to_l1()
 
 # ==== Controls ====
@@ -89,6 +97,7 @@ def update(dt):
 @window.event
 def on_draw():
     window.clear()
+    grid.vlist.draw(pyglet.gl.GL_TRIANGLES)
     
     # is there a better way to do this?
     draw_pile = []

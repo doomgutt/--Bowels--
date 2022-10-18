@@ -1,8 +1,8 @@
 import numpy as np
 import pyglet
+from numba import njit, prange
 from PIL import Image
 from src.game import graphics
-from numba import njit
 
 """
 Grid layers:
@@ -30,6 +30,7 @@ class Grid:
         
         self.cell_size = cell_size
         self.dims = np.array(dims)//self.cell_size - 2
+        self.get_all_xy()
 
         self.number_of_layers = 4
         self.layers = np.zeros((self.number_of_layers, *self.dims))
@@ -43,12 +44,15 @@ class Grid:
             print(f"loaded: {floor_file}")
             self.layers[0] = self.import_map_floor(floor_file)
 
-        # testing
-        # coords = np.transpose(np.nonzero(self.layers[0]))
-        # print(self.coords_to_v_list(coords, self.cell_size))
+
+        # --- vertex list stuff ---
+        self.mk_vlist()
+        # make vertex lists for different things
+        # instead of deleting and re-drawing stuff, you can edit
+        # vertex positions and colours in a vertex list.
+        # VERY sexy.
 
     # ==== TESTING ===========================================================
-
 
     # ==== UPDATE =============================================================
     def update(self, dt):
@@ -67,22 +71,56 @@ class Grid:
         square.opacity = rgbo[1]
         return square
     
-    def draw_v_list(self, v_list, rgbo_map):
-        # make vertex lists for different things
-        # instead of deleting and re-drawing stuff, you can edit
-        # vertex positions and colours in a vertex list.
-        # VERY sexy.
+    def mk_vlist(self):
+        """
+        make vertex list
+        """
+        v_num = self.dims[0]*self.dims[1]*6
+        vlist_stats = (v_num, "v2i/static", "c4B/static")
+        self.vlist = pyglet.graphics.vertex_list(*vlist_stats)
 
-    @staticmethod
-    @njit(nogil=True, parallel=True)
-    def coords_to_v_list(xy_list, cell_size):
-        template = np.array([
-            [0, 0], [0, 1], [1, 0],
-            [0, 1], [1, 0], [1, 1]])
-        v_list = np.zeros((len(xy_list), 12))
-        for ii, xy in enumerate(xy_list):
-            v_list[ii] = (template + xy).flatten()
-        return v_list*cell_size
+        # vertices
+        l0_vlist = coords_to_v_list(self.all_xy, self.cell_size)
+        self.vlist.vertices[:len(l0_vlist)] = l0_vlist
+
+        # colors
+        cols = self.get_l0_rgbo_list()
+        self.vlist.colors[:len(cols)] = cols
+
+        # batch
+
+        # y no work?
+
+        # self.batch.add(self.vlist, pyglet.gl.GL_TRIANGLES,
+        #                self.group, vlist_stats)
+
+    def get_l0_rgbo_list(self, rand_val=10):
+        """
+        make color map for layers[0]
+        """
+
+        floor_rgbo = np.array([20,  20,  20 , 255])
+        wall_rgbo  = np.array([100, 100, 100, 255])
+        unknown    = np.array([200, 11,  11 , 255])
+
+        rgbo_map = np.zeros((len(self.all_xy), 6, len(floor_rgbo)))
+        for ii, xy in enumerate(self.all_xy):
+            x, y = xy
+            if self.layers[0][x,y] == 0:
+                col = floor_rgbo.copy()
+            elif self.layers[0][x,y] == 1:
+                col = wall_rgbo.copy()
+            else:
+                col = unknown
+
+            # bw noise
+            col[:3] += np.random.randint(-rand_val, rand_val)
+            # # colour noise
+            # col[:3] += np.random.randint(-rand_val, rand_val, 3)
+
+            rgbo_map[ii] = np.repeat(col[None], 6, axis=0)
+
+        return rgbo_map.flatten().astype(np.int32)
 
     # ==== AGENTS ============================================================
     def agents_to_l1(self):
@@ -95,6 +133,12 @@ class Grid:
 
 
     # ==== GRID ==============================================================
+    def get_all_xy(self):
+        x = np.arange(self.dims[0])
+        y = np.arange(self.dims[1])
+        self.all_xy = np.transpose([np.tile(x, len(y)), np.repeat(y, len(x))])
+
+
     def make_floor(self, rand_col=None):
         l = 0 
         self.squares = np.zeros(self.layers.shape, dtype='object')
@@ -132,6 +176,23 @@ class Grid:
             'env'    : env,
             'agents' : agents
         }
+
+
+# === Pyglet drawing ======================================
+# @njit(nogil=True, parallel=True)
+@njit(nogil=True, parallel=True)
+def coords_to_v_list(xy_list, cell_size):
+    template = np.array([
+        [0, 0], [0, 1], [1, 0],
+        [0, 1], [1, 0], [1, 1]])
+    v_list = np.zeros((len(xy_list), 12))
+    for ii in prange(len(xy_list)):
+        v_list[ii] = (template + xy_list[ii] + 1).flatten()
+    return (v_list*cell_size).flatten().astype(np.int32)
+
+
+
+
 
     
     # def draw_circle(self, x, y, rgbo, batch):
