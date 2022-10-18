@@ -2,6 +2,16 @@
 # Stuff I should do/consider doing
 
 ## THE LIST
+- Pyglet
+    [x] basics
+    [ ] better window
+- Physics
+    - Light
+        [x] basics
+        [ ] reflection
+        [ ] refraction
+    - Sound
+    - Smell
 - Senses
     - sound
     - vision
@@ -40,9 +50,3 @@
 
 ### Utility
 
-
-# Thought dump
-- So... the light works... but it fucking sucks
-- okay, how about... I make a function that calculates surfaces.
-    - and then apply light to it....
-    - based on the previous functions with square calculations etc....

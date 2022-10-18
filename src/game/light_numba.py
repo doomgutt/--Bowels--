@@ -18,12 +18,16 @@ class LightSource:
 
         # --- radial setup ---
         light_density = 360
-        self.ray_steps = 1000
         self.radial = np.linspace(0, 2*np.pi, light_density, endpoint=False)
 
-        # --- light setup
-        r = np.sqrt(dims[0]**2 + dims[1]**2)
-        self.rays = self.ray_array(self.radial, r, self.ray_steps)
+        # --- light setup ---
+        ray_len = np.sqrt(dims[0]**2 + dims[1]**2)
+        self.cell_brightness = 2
+        self.refl_ray_len = ray_len*2
+        self.ray_steps = 1000
+
+        # --- make light ---
+        self.rays = self.ray_array(self.radial, ray_len, self.ray_steps)
         
 
 
@@ -45,11 +49,19 @@ class LightSource:
         return beams
 
     def draw(self):
+        drawn = []
         grid = self.grid_ref.layers[0] # change later to include agents
-        light_grid, ray_ends = self.get_light_grid(
-            self.center, self.rays, grid, self.ray_steps)
-        # return self.draw_lmap(light_grid)
-        return self.beams_origin_to_vertices(ray_ends)
+        
+        # grid lighting
+        light_grid = self.get_light_grid(
+            self.center, self.rays, grid, self.cell_brightness)
+        drawn.append(self.draw_lmap(light_grid))
+        
+        # beam lighting
+        ray_ends = self.get_light_rays(self.center, self.rays, grid)
+        drawn.append(self.beams_origin_to_vertices(ray_ends))
+
+        return drawn
     
     def draw_lmap(self, light_grid):
         """
@@ -68,9 +80,7 @@ class LightSource:
     # === Update Light =================================================
     @staticmethod
     @njit(nogil=True, cache=True)
-    def get_light_grid(xy, rays, grid, ray_steps):
-        ray_ends = np.zeros((len(rays), 2))
-        brightness = 1000/ray_steps
+    def get_light_grid(xy, rays, grid, brightness):
         light_grid = np.zeros_like(grid)
         for ii, ray in enumerate(rays):
             for jj in range(len(ray[0])):
@@ -78,11 +88,38 @@ class LightSource:
                 y = int(ray[1][jj] + xy[1])
                 if grid[x, y] == 0:
                     light_grid[x, y] += brightness
-                elif grid[x, y] == 1:
+                else:
+                    break
+        return np.clip(light_grid, 0, 255)
+    
+    @staticmethod
+    @njit(nogil=True, cache=True)
+    def get_light_rays(xy, rays, grid):
+        ray_ends = np.zeros((len(rays), 2))
+        for ii, ray in enumerate(rays):
+            for jj in range(len(ray[0])):
+                x = int(ray[0][jj] + xy[0])
+                y = int(ray[1][jj] + xy[1])
+                if grid[x, y] != 0:
                     ray_ends[ii][0] = ray[0][jj] + xy[0]
                     ray_ends[ii][1] = ray[1][jj] + xy[1]
                     break
-        return np.clip(light_grid, 0, 255), ray_ends
+        return ray_ends
+
+    # --- experimental ------------------------------------------------
+    @staticmethod
+    @njit(nogil=True, cache=True)
+    def get_light_rays_w_reflection(xy, rays, grid):
+        ray_ends = np.zeros((len(rays), 2))
+        for ii, ray in enumerate(rays):
+            for jj in range(len(ray[0])):
+                x = int(ray[0][jj] + xy[0])
+                y = int(ray[1][jj] + xy[1])
+                if grid[x, y] != 0:
+                    ray_ends[ii][0] = ray[0][jj] + xy[0]
+                    ray_ends[ii][1] = ray[1][jj] + xy[1]
+                    break
+        return ray_ends
 
     # === Light Setup =================================================
     @staticmethod
