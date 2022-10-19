@@ -1,9 +1,7 @@
 import numpy as np
 import pyglet
 from pyglet.window import key
-# from src.utility import utils
 from src.game import light_numba as light
-# from src.game import light
 
 class Creature:
     def __init__(self, grid_ref, clock, batch, group, rgbo=None):
@@ -15,16 +13,10 @@ class Creature:
 
         # movement
         self.xy = np.array([10, 10])
-        self.speed = 30
+        self.speed = 10
 
         # clock
-        clock.schedule_interval(self.move, 1/self.speed)
-
-        # body
-        self.size = 1
-        self.body_sq = 0
-        self.body_circ = 0
-        # self.body_edges = 0
+        clock.schedule_interval(self.update, 1/self.speed)
 
         # stats
         self.id = 99
@@ -49,10 +41,13 @@ class Creature:
         self.sprite = pyglet.shapes.Rectangle(
             (self.xy[0] + 1) * self.grid_ref.cell_size,
             (self.xy[1] + 1) * self.grid_ref.cell_size, 
-            self.size * self.grid_ref.cell_size,
-            self.size * self.grid_ref.cell_size, 
+            self.grid_ref.cell_size,
+            self.grid_ref.cell_size, 
             color=self.rgbo[0], batch=self.batch, group=self.group)
         self.sprite.opacity = self.rgbo[1]
+
+    def update(self, dt):
+        self.move(dt)
 
     def draw(self):
         pass
@@ -75,55 +70,15 @@ class Creature:
         
         self.sprite.position = (self.xy+1)*self.grid_ref.cell_size
 
-        #debug
-
     def no_wall(self, xy):
         if self.grid_ref.layers[0, xy[0], xy[1]] == 1:
             return False
         else:
             return True
 
-    # ==== Body ====
-    def body_center(self):
-        return self.xy + self.grid_ref.cell_size/2
 
-
-    # def set_body(self):
-    #     sq_body = [self.xy, 
-    #               [self.xy[0],   self.xy[1]+1],
-    #               [self.xy[0]+1, self.xy[1]+1],
-    #               [self.xy[0]+1, self.xy[1]  ]]
-    #     pass
-
-    # ==== DEBUG ====
-    # def draw_sight(self, batch, cell_size=10):
-    #     px = 2
-    #     squares = []
-    #     radius = 10
-    #     sight_circle = light_numba.radial(60) * radius
-    #     shift = 15 - px/2 # +10 for grid_ref shift, +5 for half square -1 for pix size
-    #     sight_circle[0] += self.xy[0]*cell_size + shift
-    #     sight_circle[1] += self.xy[1]*cell_size + shift
-    #     for p in sight_circle.T:
-    #         squares.append(pyglet.shapes.Rectangle(*p, px, px, batch=batch))
-    #     return squares
-
-class LightBoi2(Creature):
-    def __init__(self, *args) -> None:
-        rgbo = [[255, 215, 100], 20]
-        super().__init__(*args, rgbo=rgbo)
-        self.light = light.LightSource(self.grid_ref, self.xy, self.batch, self.group)
-        self.id = 33
-        self.xy = np.array([30, 30])
-    
-    def move(self, dt):
-        super().move(dt)
-        self.light.xy = self.xy
-        self.light.center = self.xy + [0.5, 0.5]
-    
-    def draw(self):
-        super().draw()
-        return self.light.draw()
+# =========================================================================
+# =========================================================================
 
 class LightBoi(Creature):
     def __init__(self, *args) -> None:
@@ -138,10 +93,11 @@ class LightBoi(Creature):
         self.light.xy = self.xy
         self.light.center = self.xy + [0.5, 0.5]
     
-    def draw(self):
-        super().draw()
-        return self.light.draw()
+    def update(self, dt):
+        super().update(dt)
+        self.light.update(dt)
 
+# =========================================================================
 class Toe(Creature):
     def __init__(self, pos, grid_ref):
         super().__init__(grid_ref)
@@ -150,6 +106,7 @@ class Toe(Creature):
         self.speed = 4
         self.rgbo = [[255, 255, 0], 255]
 
+# =========================================================================
 class Ear(Creature):
     def __init__(self, pos, grid_ref):
         super().__init__(grid_ref)
@@ -158,6 +115,7 @@ class Ear(Creature):
         self.speed = 4
         self.rgbo = [[255, 0, 0], 255]
 
+# =========================================================================
 class Nose(Creature):
     def __init__(self, pos, grid_ref):
         super().__init__(grid_ref)
@@ -166,6 +124,7 @@ class Nose(Creature):
         self.speed = 4
         self.rgbo = [[0, 255, 0], 255]
 
+# =========================================================================
 class Running_Square(Creature):
     def __init__(self, grid_ref):
         super().__init__(grid_ref)
@@ -177,9 +136,6 @@ class Running_Square(Creature):
             "left" : key.A, 
             "right": key.D
         }
-
-    def update(self, dt, grid_ref):
-        super().update(dt, grid_ref)
 
 
 

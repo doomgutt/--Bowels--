@@ -44,7 +44,6 @@ class Grid:
             print(f"loaded: {floor_file}")
             self.layers[0] = self.import_map_floor(floor_file)
 
-
         # --- vertex list stuff ---
         self.mk_vlist()
         # make vertex lists for different things
@@ -75,50 +74,42 @@ class Grid:
         """
         make vertex list
         """
-        v_num = self.dims[0]*self.dims[1]*6
-        vlist_stats = (v_num, "v2i/static", "c4B/static")
-        self.vlist = pyglet.graphics.vertex_list(*vlist_stats)
+        v_num = np.prod(self.dims)*6
+        self.vlist = self.batch.add(
+            v_num, pyglet.gl.GL_TRIANGLES, 
+            self.group, "v2i/static", "c4B/static"
+        )
 
         # vertices
         l0_vlist = coords_to_v_list(self.all_xy, self.cell_size)
         self.vlist.vertices[:len(l0_vlist)] = l0_vlist
 
         # colors
-        cols = self.get_l0_rgbo_list()
-        self.vlist.colors[:len(cols)] = cols
+        cols = self.get_l0_rgbo_list(self.all_xy, self.layers[0])
+        self.vlist.colors = cols
 
-        # batch
-
-        # y no work?
-
-        # self.batch.add(self.vlist, pyglet.gl.GL_TRIANGLES,
-        #                self.group, vlist_stats)
-
-    def get_l0_rgbo_list(self, rand_val=10):
+    @staticmethod
+    @njit(nogil=True, parallel=True, cache=True)
+    def get_l0_rgbo_list(all_xy, l0, rand_val=10):
         """
         make color map for layers[0]
         """
 
-        floor_rgbo = np.array([20,  20,  20 , 255])
+        floor_rgbo = np.array([20,  20,  20 , 255],)
         wall_rgbo  = np.array([100, 100, 100, 255])
         unknown    = np.array([200, 11,  11 , 255])
 
-        rgbo_map = np.zeros((len(self.all_xy), 6, len(floor_rgbo)))
-        for ii, xy in enumerate(self.all_xy):
-            x, y = xy
-            if self.layers[0][x,y] == 0:
+        rgbo_map = np.zeros((len(all_xy), 6, len(floor_rgbo)))
+        for ii in prange(len(all_xy)):
+            x, y = all_xy[ii]
+            if l0[x,y] == 0:
                 col = floor_rgbo.copy()
-            elif self.layers[0][x,y] == 1:
+            elif l0[x,y] == 1:
                 col = wall_rgbo.copy()
             else:
                 col = unknown
-
-            # bw noise
-            col[:3] += np.random.randint(-rand_val, rand_val)
-            # # colour noise
-            # col[:3] += np.random.randint(-rand_val, rand_val, 3)
-
-            rgbo_map[ii] = np.repeat(col[None], 6, axis=0)
+            col = graphics.rand_col(col, 'bw', rand_val)
+            rgbo_map[ii] = col
 
         return rgbo_map.flatten().astype(np.int32)
 
@@ -139,16 +130,16 @@ class Grid:
         self.all_xy = np.transpose([np.tile(x, len(y)), np.repeat(y, len(x))])
 
 
-    def make_floor(self, rand_col=None):
-        l = 0 
-        self.squares = np.zeros(self.layers.shape, dtype='object')
-        for x, row in enumerate(self.layers[l]):
-            for y, val in enumerate(row):
-                if rand_col:
-                    rgbo = graphics.randomize_color(self.color_map['env'][val], rand_col)
-                else:
-                    rgbo = self.color_map['env'][val]
-                self.squares[l, x, y] = self.draw_square(x, y, rgbo)
+    # def make_floor(self, rand_col=None):
+    #     l = 0 
+    #     self.squares = np.zeros(self.layers.shape, dtype='object')
+    #     for x, row in enumerate(self.layers[l]):
+    #         for y, val in enumerate(row):
+    #             if rand_col:
+    #                 rgbo = graphics.randomize_color(self.color_map['env'][val], rand_col)
+    #             else:
+    #                 rgbo = self.color_map['env'][val]
+    #             self.squares[l, x, y] = self.draw_square(x, y, rgbo)
 
     def import_map_floor(self, filename):
         dir_str = "./assets/maps/floors/"
@@ -179,8 +170,7 @@ class Grid:
 
 
 # === Pyglet drawing ======================================
-# @njit(nogil=True, parallel=True)
-@njit(nogil=True, parallel=True)
+@njit(nogil=True, parallel=True, cache=True)
 def coords_to_v_list(xy_list, cell_size):
     template = np.array([
         [0, 0], [0, 1], [1, 0],

@@ -46,18 +46,24 @@
 # win.run()
 
 
-
+# ============================================================================
 import pyglet
+import numpy as np
 from src.game import graphics
 from src.game import discrete_space
 from src.game import creatures
-# =========================================================
+
+# ==== Game Dims =============================================================
 # Use dims of x10 pixels
 window_dims = (800, 600)
 cell_size = 10
 
-# ==== Pyglet Setup ====
+# ==== Pyglet Setup ==========================================================
 window = pyglet.window.Window(*window_dims)
+
+# --- enabling transparency?? ---
+pyglet.gl.glEnable(pyglet.gl.GL_BLEND)
+pyglet.gl.glBlendFunc(pyglet.gl.GL_SRC_ALPHA, pyglet.gl.GL_ONE_MINUS_SRC_ALPHA)
 
 # --- graphics --------
 batch1 = pyglet.graphics.Batch()
@@ -71,58 +77,28 @@ group_3 = pyglet.graphics.OrderedGroup(3)
 clock1 = pyglet.clock.get_default()
 fps_display = graphics.fps_custom_display(window)
 
-# ==== Grid ====
+# ==== Grid ==================================================================
 grid = discrete_space.Grid(cell_size, window_dims, batch1, group_0, 'default_map.png')
-# grid.make_floor(rand_col='bw')
 
-# ==== Agents ====
+# ==== Agents ================================================================
 grid.add_agent(creatures.LightBoi(grid, clock1, batch1, group_1))
-# grid.agents_to_l1()
 
-# ==== Controls ====
+# ==== Controls ==============================================================
 for agent in grid.agents:
     window.push_handlers(agent.key_handler)
 
-# ==== Lights ====
-# 
-#
-#
-
-# ==== Update ====
+# ==== Update ================================================================
 def update(dt):
     grid.update(dt)
 
-# ==== Draw ====
-
+# ==== Draw ==================================================================
 @window.event
 def on_draw():
     window.clear()
-    grid.vlist.draw(pyglet.gl.GL_TRIANGLES)
-    
-    # is there a better way to do this?
-    draw_pile = []
-    
-    # Grid
-    draw_pile.append(grid.draw())
-    
-    # Agents
-    for agent in grid.agents:
-        draw_pile.append(agent.draw())
-    
-    # Batch
     batch1.draw()
     fps_display.draw()
 
-# ==== Debug ====
-# 
-#
-#
-
-# ==== TESTING ====
-#
-#
-
-# ==== RUN ====
+# ==== RUN ===================================================================
 if __name__ == '__main__':
     pyglet.clock.schedule_interval(update, 1/120.0)
     pyglet.app.run()
