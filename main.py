@@ -48,10 +48,8 @@
 
 # ============================================================================
 import pyglet
-import numpy as np
 from src.game import graphics
 from src.game import discrete_space
-from src.game import creatures
 
 # ==== Game Dims =============================================================
 # Use dims of x10 pixels
@@ -71,24 +69,18 @@ group_0 = pyglet.graphics.OrderedGroup(0)
 group_1 = pyglet.graphics.OrderedGroup(1)
 group_2 = pyglet.graphics.OrderedGroup(2)
 group_3 = pyglet.graphics.OrderedGroup(3)
+groups = [group_0, group_1, group_2, group_3]
 
 # --- time -------------
 clock1 = pyglet.clock.get_default()
 fps_display = graphics.fps_custom_display(window)
 
 # ==== Grid ==================================================================
-grid = discrete_space.Grid(cell_size, batch1, group_0, 'default_map.png')
-
-# ==== Agents ================================================================
-grid.add_agent(creatures.LightBoi(grid, clock1, batch1, group_1))
+grid = discrete_space.Grid(cell_size, clock1, batch1, groups, 'default_map.png')
 
 # ==== Controls ==============================================================
 for agent in grid.agents:
     window.push_handlers(agent.key_handler)
-
-# ==== Update ================================================================
-def update(dt):
-    grid.update(dt)
 
 # ==== Draw ==================================================================
 @window.event
@@ -99,5 +91,4 @@ def on_draw():
 
 # ==== RUN ===================================================================
 if __name__ == '__main__':
-    pyglet.clock.schedule_interval(update, 1/120.0)
     pyglet.app.run()

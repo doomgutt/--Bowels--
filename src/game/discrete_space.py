@@ -3,6 +3,8 @@ import pyglet
 from numba import njit, prange
 from PIL import Image
 from src.game import graphics
+from src.game import light
+from src.game import creatures
 
 """
 Grid layers:
@@ -15,7 +17,7 @@ Grid layers:
 """
 
 class Grid:
-    def __init__(self, cell_size, batch, group, floor_file=None):
+    def __init__(self, cell_size, clock, batch, groups, floor_file=None):
         """
         Dimensions
         ----------
@@ -28,7 +30,9 @@ class Grid:
         layer 2: characters
         """
         self.batch = batch
-        self.group = group
+        self.groups = groups
+        self.clock = clock
+        clock.schedule_interval(self.update, 1/120.0)
         
         # === making map ===
         self.cell_size = cell_size
@@ -43,102 +47,155 @@ class Grid:
             floor_plan = self.import_map_floor(floor_file)
             self.dims = floor_plan.shape
 
-        layers = (3, 4)
-        # self.number_of_layers = 4
-        self.layers = np.zeros((*layers, *self.dims))
+        layer_dims = (3, 4)
+        self.layers = np.zeros((*layer_dims, *self.dims))
         self.get_all_xy()
 
         # --- populating layers ---
         self.layers[0, 1] = floor_plan
 
-        # === agents ====
+        # === entities ====
         self.agents = []
+        self.light_sources = []
+        self.init_entities()
 
-        # === drawing ===
-        self.mk_color_map()
-        # self.rgbo_map = graphics.RGBOmap(self)
+        # === vertex list stuff ===
+        self.make_vertex_lists()
 
-        # --- vertex list stuff ---
-        self.mk_vlist()
-        # make vertex lists for different things
-        # instead of deleting and re-drawing stuff, you can edit
-        # vertex positions and colours in a vertex list.
-        # VERY sexy.
-
-    # ==== TESTING ===========================================================
-
-    # ==== UPDATE =============================================================
-    def update(self, dt):
-        # self.rgbo_map.update(self.layers)
-        # self.vlist.colors = self.rgbo_map.rgbo_grid
-        self.agents_to_l20()
-    
-    # ==== DRAW ==============================================================
-    def draw(self):
-        pass
-
-    def draw_square(self, x, y, rgbo):
-        """draws the square of appropriate size, color and offset"""
-        square = pyglet.shapes.Rectangle(
-            (x+1)*self.cell_size, (y+1)*self.cell_size,
-            self.cell_size, self.cell_size,
-            color=rgbo[0], batch=self.batch, group=self.group)
-        square.opacity = rgbo[1]
-        return square
-    
-    def mk_vlist(self):
-        """
-        make vertex list
-        """
+    # ==== SETUP =============================================================
+    # ---- VERTEX LISTS ------------------------------------------------------
+    def make_vertex_lists(self):
+        # setup
         v_num = np.prod(self.dims)*6
-        self.vlist = self.batch.add(
-            v_num, pyglet.gl.GL_TRIANGLES, 
-            self.group, "v2i/static", "c4B/static"
-        )
+        vlist = coords_to_v_list(self.anchor, self.all_xy, self.cell_size)
+        v_st = "v2i/static"
+        tri = pyglet.gl.GL_TRIANGLES
 
-        # vertices
-        l0_vlist = coords_to_v_list(self.anchor, self.all_xy, self.cell_size)
-        self.vlist.vertices[:len(l0_vlist)] = l0_vlist
+        # floor
+        self.l00_vlist = self.batch.add(v_num, tri, self.groups[0], v_st, "c4B/static")
+        self.l00_vlist.vertices = vlist
+        self.l00_vlist.colors = self.l00_rgbos(self.all_xy, self.layers[0, 0])
 
-        # colors
-        cols = self.get_l0_rgbo_list(self.all_xy, self.layers[0, 1])
-        self.vlist.colors = cols
+        # walls
+        self.l01_vlist = self.batch.add(v_num, tri, self.groups[3], v_st, "c4B/static")
+        self.l01_vlist.vertices = vlist
+        self.l01_vlist.colors = self.l01_rgbos(self.all_xy, self.layers[0, 1])
+
+        # light
+        self.l11_vlist = self.batch.add(v_num, tri, self.groups[1], v_st, "c4B/dynamic")
+        self.l11_vlist.vertices = vlist
+
+        # sound
+        # smell
+
+        # agents
+        self.l20_vlist = self.batch.add(v_num, tri, self.groups[2], v_st, "c4B/stream")
+        self.l20_vlist.vertices = vlist
+    
+    # ---- ENTITIES ----------------------------------------------------------
+    def init_entities(self):
+        # Lights
+        self.add_light_source(light.LightSource((26, 26), self, self.groups[1]))
+        self.layers[0,1,26,26] = 2
+
+        # Agents
+        self.add_agent(creatures.Toe((30, 30), self, self.groups[2]))
         
 
+    # ==== UPDATES =============================================================
+    def update(self, dt):
+        self.update_lights()
+        self.update_agents()
+        self.update_vlist_cols()
+    
+    def update_agents(self):
+        self.layers[2, 0] = 0
+        for agent in self.agents:
+            self.layers[2, 0, agent.xy[0], agent.xy[1]] = agent.id
+
+    # njit this one?
+    def update_lights(self):
+        object_grid = self.layers[0,1] + self.layers[2,0]
+        self.layers[1, 1] = 0
+        for l_source in self.light_sources:
+            self.layers[1, 1] += l_source.mk_light_grid(object_grid)
+        np.clip(self.layers[1, 1], 0, 255).astype(np.int32)
+
+    def update_vlist_cols(self):
+        # light
+        self.l11_vlist.colors = self.l11_rgbos(self.all_xy, self.layers[1,1])
+        # agents
+        self.l20_vlist = 0
+
+    # ==== ADDIGNG STUFF =====================================================
+    def add_agent(self, agent):
+        self.agents.append(agent)
+
+    def add_light_source(self, light_source):
+        self.light_sources.append(light_source)    
+
+
+    # ==== DRAWING COLORS ====================================================
     @staticmethod
     @njit(nogil=True, parallel=True, cache=True)
-    def get_l0_rgbo_list(all_xy, l0, rand_val=10):
-        """
-        make color map for layers[0]
-        """
+    def l00_rgbos(all_xy, l00, rand_val=10):
+        floor_rgbo = np.array([20, 20, 20, 255],)
+        unknown    = np.array([255, 0, 0, 255])
 
-        floor_rgbo = np.array([20,  20,  20 , 255],)
-        wall_rgbo  = np.array([100, 100, 100, 255])
-        unknown    = np.array([200, 11,  11 , 255])
-
-        rgbo_map = np.zeros((len(all_xy), 6, len(floor_rgbo)))
+        rgbo_map = np.zeros((len(all_xy), 6, 4))
         for ii in prange(len(all_xy)):
             x, y = all_xy[ii]
-            if l0[x,y] == 0:
+            if l00[x,y] == 0:
                 col = floor_rgbo.copy()
-            elif l0[x,y] == 1:
-                col = wall_rgbo.copy()
             else:
                 col = unknown
             col = graphics.rand_col(col, 'bw', rand_val)
             rgbo_map[ii] = col
 
         return rgbo_map.flatten().astype(np.int32)
+    
+    @staticmethod
+    @njit(nogil=True, parallel=True, cache=True)
+    def l01_rgbos(all_xy, l01, rand_val=10):
+        """
+        make color map for layers[0]
+        """
 
-    # ==== AGENTS ============================================================
-    def agents_to_l20(self):
-        self.layers[2, 0] = 0
-        for agent in self.agents:
-            self.layers[2, 0, agent.xy[0], agent.xy[1]] = agent.id
+        no_wall_rgbo = np.array([0, 0, 0, 0],)
+        wall_rgbo  = np.array([100, 100, 100, 255])
+        light_block_rgbo = np.array([120, 120, 80, 255])
+        unknown_rgbo = np.array([0, 255, 0, 255])
 
-    def add_agent(self, agent):
-        self.agents.append(agent)
+        rgbo_map = np.zeros((len(all_xy), 6, 4))
+        for ii in prange(len(all_xy)):
+            x, y = all_xy[ii]
+            if l01[x,y] == 0:
+                col = no_wall_rgbo.copy()
+            elif l01[x,y] == 1:
+                col = wall_rgbo.copy()
+            elif l01[x,y] == 2:
+                col = light_block_rgbo.copy()
+            else:
+                col = unknown_rgbo
+            col = graphics.rand_col(col, 'bw', rand_val)
+            rgbo_map[ii] = col
 
+        return rgbo_map.flatten().astype(np.int32)
+    
+    @staticmethod
+    @njit(nogil=True, parallel=True, cache=True)
+    def l11_rgbos(all_xy, light_grid, rand_val=2):
+        light_rgbo = np.array([200, 200, 100, 0])
+
+        rgbo_map = np.zeros((len(all_xy), 6, 4))
+        for ii in prange(len(all_xy)):
+            x, y = all_xy[ii]
+            brightness = light_grid[x, y]
+            col = light_rgbo.copy()
+            col[3] = brightness
+            rgbo_map[ii] = col
+        rgbo_map = np.clip(rgbo_map, 0, 255).flatten()
+        return rgbo_map.astype(np.int32)
 
     # ==== GRID ==============================================================
     def get_all_xy(self):
@@ -155,6 +212,17 @@ class Grid:
         return img_arr.T
 
     # ==== UTILITY ===========================================================
+
+    def draw_square(self, xy, rgbo, group):
+        sprite = pyglet.shapes.Rectangle(
+            (xy[0] + 1 + self.anchor[0]) * self.cell_size,
+            (xy[1] + 1 + self.anchor[1]) * self.cell_size, 
+            self.cell_size,
+            self.cell_size, 
+            color=rgbo[:3], batch=self.batch, group=group)
+        sprite.opacity = rgbo[-1]
+        return sprite
+
     def mk_color_map(self):
         env = {
             0 : [[20,  20,  20 ], 255],
@@ -183,7 +251,6 @@ def coords_to_v_list(anchor, xy_list, cell_size):
     for ii in prange(len(xy_list)):
         v_list[ii] = (template + xy_list[ii] + anchor + 1).flatten()
     return (v_list*cell_size).flatten().astype(np.int32)
-
 
 
 

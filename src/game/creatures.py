@@ -4,26 +4,26 @@ from pyglet.window import key
 from src.game import light
 
 class Creature:
-    def __init__(self, grid_ref, clock, batch, group, rgbo=None):
+    def __init__(self, xy, grid, group, speed, a_id, rgbo):
         # pyglet setup
-        self.grid_ref = grid_ref
-        self.clock = clock
-        self.batch = batch
+        self.grid_ref = grid
+        self.batch = grid.batch
         self.group = group
 
         # movement
-        self.xy = np.array([10, 10])
-        self.speed = 10
+        self.xy = np.array(xy)
+        self.speed = speed
 
         # clock
-        clock.schedule_interval(self.update, 1/self.speed)
+        self.clock = grid.clock
+        self.clock.schedule_interval(self.update, 1/self.speed)
 
         # stats
-        self.id = 99
-        self.rgbo = [[255, 255, 255], 255] if rgbo == None else rgbo
+        self.id = a_id
+        self.rgbo = rgbo
 
         # sprite
-        self.mk_sprite()
+        self.sprite = grid.draw_square(self.xy, self.rgbo, self.group)
 
         # controls
         self.key_handler = key.KeyStateHandler()
@@ -36,17 +36,7 @@ class Creature:
         # debug
         self.debug = False
 
-    # ==== Sprite ====
-    def mk_sprite(self):
-        grid = self.grid_ref
-        self.sprite = pyglet.shapes.Rectangle(
-            (self.xy[0] + 1 + grid.anchor[0]) * grid.cell_size,
-            (self.xy[1] + 1 + grid.anchor[1]) * grid.cell_size, 
-            grid.cell_size,
-            grid.cell_size, 
-            color=self.rgbo[0], batch=self.batch, group=self.group)
-        self.sprite.opacity = self.rgbo[1]
-
+    # ==== Update ====
     def update(self, dt):
         self.move(dt)
 
@@ -69,13 +59,15 @@ class Creature:
             if self.no_wall(self.xy+[1,0]):
                 self.xy += [1,0]
         
-        self.sprite.position = (self.xy+1)*self.grid_ref.cell_size
+        # move sprite
+        pos = (self.xy+1+self.grid_ref.anchor)*self.grid_ref.cell_size
+        self.sprite.position = pos
 
     def no_wall(self, xy):
-        if self.grid_ref.layers[0, 1, xy[0], xy[1]] == 1:
-            return False
-        else:
+        if self.grid_ref.layers[0, 1, xy[0], xy[1]] == 0:
             return True
+        else:
+            return False
 
 
 # =========================================================================
@@ -83,11 +75,13 @@ class Creature:
 
 class LightBoi(Creature):
     def __init__(self, *args) -> None:
-        rgbo = [[0, 255, 0], 255]
+        rgbo = [0, 255, 0, 255]
         super().__init__(*args, rgbo=rgbo)
         self.light = light.LightSource(self.grid_ref, self.xy, self.batch, self.group)
         self.id = 33
         self.xy = np.array([30, 30])
+        self.clock_speed = 1 
+        self.clock.schedule_interval(self.update, self.clock_speed)
     
     def move(self, dt):
         super().move(dt)
@@ -98,45 +92,43 @@ class LightBoi(Creature):
         super().update(dt)
         self.light.update(dt)
 
+
 # =========================================================================
 class Toe(Creature):
-    def __init__(self, pos, grid_ref):
-        super().__init__(grid_ref)
-        self.x = pos[0]
-        self.y = pos[1]
-        self.speed = 4
-        self.rgbo = [[255, 255, 0], 255]
+    def __init__(self, xy, grid, group):
+        speed = 10
+        a_id = 1
+        rgbo = [100, 200, 0, 255]
+        super().__init__(xy, grid, group, speed, a_id, rgbo)
 
 # =========================================================================
 class Ear(Creature):
-    def __init__(self, pos, grid_ref):
-        super().__init__(grid_ref)
-        self.x = pos[0]
-        self.y = pos[1]
-        self.speed = 4
-        self.rgbo = [[255, 0, 0], 255]
+    def __init__(self, xy, grid, group):
+        speed = 20
+        a_id = 2
+        rgbo = [255, 0, 0, 255]
+        super().__init__(xy, grid, group, speed, a_id, rgbo)
 
 # =========================================================================
 class Nose(Creature):
-    def __init__(self, pos, grid_ref):
-        super().__init__(grid_ref)
-        self.x = pos[0]
-        self.y = pos[1]
-        self.speed = 4
-        self.rgbo = [[0, 255, 0], 255]
+    def __init__(self, xy, grid, group):
+        speed = 4
+        a_id = 3
+        rgbo = [0, 255, 0, 255]
+        super().__init__(xy, grid, group, speed, a_id, rgbo)
 
 # =========================================================================
-class Running_Square(Creature):
-    def __init__(self, grid_ref):
-        super().__init__(grid_ref)
-        self.rgbo = [[255, 0, 0], 255]
-        self.counter = 0
-        self.controls = {
-            "up"   : key.W, 
-            "down" : key.S, 
-            "left" : key.A, 
-            "right": key.D
-        }
+# class Running_Square(Creature):
+#     def __init__(self, grid_ref):
+#         super().__init__(grid_ref)
+#         self.rgbo = [[255, 0, 0], 255]
+#         self.counter = 0
+#         self.controls = {
+#             "up"   : key.W, 
+#             "down" : key.S, 
+#             "left" : key.A, 
+#             "right": key.D
+#         }
 
 
 
