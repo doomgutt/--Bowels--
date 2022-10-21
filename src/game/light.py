@@ -1,4 +1,8 @@
 import numpy as np
+import pyglet
+import time
+from numba import njit, prange
+from src.game import discrete_space as ds
 
 
 class LightSource:
@@ -8,139 +12,115 @@ class LightSource:
         self.grid_ref = grid
         self.xy = np.array(xy)
         self.center = self.xy + [0.5, 0.5]
+        self.all_xy = grid.all_xy
 
-        self.make_light()
-
-    # ==== SETUP =========================================
-    def make_light(self):
-        """
-        px: positive x
-        nx: negative x
-
-        the idea is
-        1. have a pre-made grid of ALL potential tiles
-        2. shift that grid around and check light_beams for where they should end
-        """
-
-        # --- x_range setup ---
+        # --- x_range ---
         dims = self.grid_ref.dims
-        self.x_range = np.linspace(0, dims[0], dims[0], endpoint=False).astype(int)
+        self.x_range = np.linspace(0, dims[0]-1, dims[0])
+        self.x_range = self.x_range.astype(int)
 
         # --- radial setup ---
-        self.light_density = 90  # half-circle density, 180 for total 360
-        self.radial = np.linspace(0.001, np.pi, self.light_density, endpoint=False)
+        light_density = 360
+        self.radial = np.linspace(0, 2*np.pi, light_density, endpoint=False)
 
-        # --- light map 2 ---
-        self.make_light_map_v02()
-        # self.make_light_map_v03()
+        # --- light setup ---
+        ray_len = np.sqrt(dims[0]**2 + dims[1]**2)
+        self.cell_brightness = 2
+        self.refl_ray_len = ray_len*2
+        self.ray_steps = 1000
 
-    # ==== Draw =================================================
+        # --- make light ---
+        self.rays = self.ray_array(self.radial, ray_len, self.ray_steps)
+        self.mk_light_vlist()
+
+    # === Light Setup =================================================
+    @staticmethod
+    @njit(nogil=True, parallel=True, cache=True)
+    def ray_array(radial, r, ray_steps=1000):
+        rays = np.zeros((len(radial), 2, ray_steps))
+        x_steps = np.sin(radial)*r
+        y_steps = np.cos(radial)*r
+        for ii in range(len(radial)):
+            x_coords = np.linspace(0, x_steps[ii], ray_steps)
+            y_coords = np.linspace(0, y_steps[ii], ray_steps)
+            rays[ii][0] = x_coords
+            rays[ii][1] = y_coords
+        return rays
+
+    # === Update Light =================================================
+    @staticmethod
+    @njit(nogil=True, cache=True)
+    def get_light_grid(xy, rays, object_grid, brightness):
+        light_grid = np.zeros_like(object_grid)
+        for ii in prange(len(rays)):
+            for jj in prange(len(rays[ii][0])):
+                x = np.int64(rays[ii][0][jj] + xy[0])
+                y = np.int64(rays[ii][1][jj] + xy[1])
+                if object_grid[x, y] == 0:
+                    light_grid[x, y] += brightness
+                else:
+                    break
+        return np.clip(light_grid, 0, 255)
+
+    @staticmethod
+    @njit(nogil=True, cache=True)
+    def get_light_rays(xy, rays, grid):
+        ray_ends = np.zeros((len(rays), 2))
+        for ii, ray in enumerate(rays):
+            for jj in range(len(ray[0])):
+                x = int(ray[0][jj] + xy[0])
+                y = int(ray[1][jj] + xy[1])
+                if grid[x, y] != 0:
+                    ray_ends[ii][0] = ray[0][jj] + xy[0]
+                    ray_ends[ii][1] = ray[1][jj] + xy[1]
+                    break
+        return ray_ends
+
+    # --- experimental ------------------------------------------------
+    @staticmethod
+    @njit(nogil=True, cache=True)
+    def get_light_rays_w_reflection(xy, rays, grid):
+        ray_ends = np.zeros((len(rays), 2))
+        for ii, ray in enumerate(rays):
+            for jj in range(len(ray[0])):
+                x = int(ray[0][jj] + xy[0])
+                y = int(ray[1][jj] + xy[1])
+                if grid[x, y] != 0:
+                    ray_ends[ii][0] = ray[0][jj] + xy[0]
+                    ray_ends[ii][1] = ray[1][jj] + xy[1]
+                    break
+        return ray_ends
+
+    # === UPDATE =======================================================
+    def update(self, dt):
+        self.update_light()
+
+
+    # === Drawing Light ================================================
     def draw(self):
-        return self.lights_v02()
-        # return self.lights_v03()
+        pass
+
+    def beams_origin_to_vertices(self, vertices, xy=None):
+        if xy == None:
+            xy = self.center
+        else:
+            xy = self.xy
+        beams = []
+        for v in vertices:
+            beam = pyglet.shapes.Line(
+                *(xy+1)*self.grid_ref.cell_size,
+                *(v+1)*self.grid_ref.cell_size,
+                width=1,
+                batch=self.batch, group=self.group)
+            beam.opacity = 60
+            beams.append(beam)
+        return beams
     
-
-    # ==== Light Stuff v0.3 =====================================
-    def lights_v03(self):
-        drawn = []
-        self.update_rays()
-        drawn.append(self.draw_lmap())
-        return drawn
-
-    def update_rays(self):
-        self.active_lmap = np.zeros(self.grid_ref.dims)
-        brightness = 20
-
-        for ray in self.p_lmap2:
-            check = False
-            for x, y_chunk in enumerate(ray):
-                if len(y_chunk) == 0: break
-                x = self.xy[0] + x
-                y_ch = self.xy[1] + y_chunk
-                y_ch = y_ch[y_ch<self.grid_ref.dims[1]]
-                for y in y_ch:
-                    try:
-                        check = (self.grid_ref.layers[0, x, y] == 1)
-                    except IndexError:
-                        break
-                    if check:
-                        break
-                    self.active_lmap[x, y] += brightness
-                if check: break
-        
-        
-        for ray in self.n_lmap2:
-            check = False
-            for x, y_chunk in enumerate(ray):
-                if len(y_chunk) == 0: break
-                x = self.xy[0] - x
-                y_ch = self.xy[1] + y_chunk
-                y_ch = y_ch[y_ch<self.grid_ref.dims[1]]
-                for y in y_ch:
-                    try:
-                        check = (self.grid_ref.layers[0, x, y] == 1)
-                    except IndexError:
-                        break
-                    if check:
-                        break
-                    self.active_lmap[x, y] += brightness
-                if check: break
-
-    def make_light_map_v03(self):
-        """
-        makes the light map for all rays
-        """
-        self.p_lmap2 = [[] for _ in range(self.light_density)]
-        self.n_lmap2 = [[] for _ in range(self.light_density)]
-        for i in range(self.light_density):
-            self.get_ray_v03(i)
-
-    def get_ray_v03(self, radial_idx):
-        """
-        - gets a "ray" of "y_chunks" from radial index.
-        - has to be done with a custom "off-grid" because it's projected
-        from the center of the tile.
-        """
-        ray_angle = self.radial[radial_idx]
-        slope = np.cos(ray_angle)/np.sin(ray_angle)
-
-        y_lim = self.grid_ref.dims[1]-0.5
-        self.x_range_center = np.concatenate((np.array([0]), self.x_range+0.5))
-        y = self.x_range_center*slope
-        off_grid = np.linspace(-0.5, y_lim, int(y_lim+0.5)+1)
-
-        # pos slope
-        if y[0] <= y[-1]:
-            for i in range(len(y)-1):
-                cond = (y[i]-1 <= off_grid) & (off_grid <= y[i+1])
-                y_range = (off_grid[cond]+0.5).astype(int)
-                self.p_lmap2[radial_idx].append(y_range)
-                self.n_lmap2[radial_idx].append(-y_range)
-
-        # neg slope
-        elif y[0] > y[-1]:
-            off_grid = -off_grid
-            y_lim = - y_lim
-            for i in range(len(y)-1):
-                cond = (y[i] >= off_grid) & (off_grid >= y[i+1]-1)
-                y_range = (off_grid[cond]+0.5).astype(int)
-                self.p_lmap2[radial_idx].append(y_range)
-                self.n_lmap2[radial_idx].append(-y_range)
-
-
-    # ==== Light Stuff v0.2 =====================================
-
-    def lights_v02(self):
-        drawn = []
-        self.update_lmap()
-        drawn.append(self.draw_lmap())
-        return drawn
-
-    def draw_lmap(self):
+    def draw_lmap(self, light_grid):
         """
         draws the brightness map
         """
-        active_map = np.clip(self.active_lmap, 0, 255)
+        active_map = np.clip(light_grid, 0, 255)
         squares = []
         for x, row in enumerate(active_map):
             for y, brightness in enumerate(row):
@@ -150,125 +130,34 @@ class LightSource:
                 squares.append(square)
         return squares
 
-    def update_lmap(self):
-        """
-        run to update the light map and break off the rays depending on
-        current xy
-        """
+    def mk_light_vlist(self):
+        grid = self.grid_ref
 
-        self.active_lmap = np.zeros(self.grid_ref.dims)
-        plmap = self.xy[1] + self.p_lmap
-        nlmap = self.xy[1] + self.n_lmap
-        xp = self.xy[0] + self.x_range
-        xn = self.xy[0] - self.x_range
+        v_num = np.prod(grid.dims)*6
+        self.vlist = self.batch.add(
+            v_num, pyglet.gl.GL_TRIANGLES, 
+            self.group, "v2i/static", "c4B/stream")
 
-        brightness = 20
-        # brightness = 100
+        # vertices
+        light_vlist = ds.coords_to_v_list(grid.anchor, self.all_xy, grid.cell_size)
+        self.vlist.vertices[:len(light_vlist)] = light_vlist
 
-        for ray in plmap:
-            for i, y_chunk in enumerate(ray):
-                check = False
-                for y in y_chunk:
-                    if np.isnan(y) or (y > self.grid_ref.dims[1]):
-                        break
-                    py = int(y)
-                    try:
-                        check = (self.grid_ref.layers[0, xp[i], py] == 1)
-                    except IndexError:
-                        break
-                    if check:
-                        break
-                    self.active_lmap[xp[i], py] += brightness
-                if check:
-                    break
-        
-        for ray in nlmap:
-            for i, y_chunk in enumerate(ray):
-                check = False
-                for y in y_chunk:
-                    if np.isnan(y) or (y > self.grid_ref.dims[1]):
-                        break
-                    py = int(y)
-                    try:
-                        check = (self.grid_ref.layers[0, xn[i], py] == 1)
-                    except IndexError:
-                        break
-                    if check:
-                        break
-                    self.active_lmap[xn[i], py] += brightness
-                if check:
-                    break
+        # colors
+        self.update_light()
 
+    def update_light(self):
+        l01 = self.grid_ref.layers[0, 1]
+        light_grid = self.get_light_grid(self.center, self.rays, l01, self.cell_brightness)
+        self.vlist.colors = self.get_light_cols(self.all_xy, light_grid)
 
-    def make_light_map_v02(self):
-        """
-        makes the light map for all rays
-        """
-        dims = self.grid_ref.dims
-        self.p_lmap = np.empty((self.light_density, dims[0]+1, dims[1]+1))
-        self.p_lmap[:] = np.nan
-        for i in range(self.light_density):
-            self.get_ray_v02(i)
-        self.n_lmap = -self.p_lmap.copy()
-
-    def get_ray_v02(self, radial_idx):
-        """
-        - gets a "ray" of "y_chunks" from radial index.
-        - has to be done with a custom "off-grid" because it's projected
-          from the center of the tile.
-        """
-        ray_angle = self.radial[radial_idx]
-        slope = np.cos(ray_angle)/np.sin(ray_angle)
-
-        y_lim = self.grid_ref.dims[1]-0.5
-        self.x_range_center = np.concatenate((np.array([0]), self.x_range+0.5))
-        y = self.x_range_center*slope
-        off_grid = np.linspace(-0.5, y_lim, int(y_lim+0.5)+1)
-
-        # pos slope
-        if y[0] <= y[-1]:
-            for i in range(len(y)-1):
-                cond = (y[i]-1 <= off_grid) & (off_grid <= y[i+1])
-                y_range = (off_grid[cond]+0.5).astype(int)
-                self.p_lmap[radial_idx][i][0:len(y_range)] = y_range
-
-        # neg slope
-        elif y[0] > y[-1]:
-            off_grid = -off_grid
-            y_lim = - y_lim
-            for i in range(len(y)-1):
-                cond = (y[i] >= off_grid) & (off_grid >= y[i+1]-1)
-                y_range = (off_grid[cond]+0.5).astype(int)
-                self.p_lmap[radial_idx][i][0:len(y_range)] = y_range
-
-
-
-    # ==== LIGHT STUFF ==========================================
-    # def beams_origin_to_vertices(self, vertices, xy=None):
-    #     if xy == None:
-    #         xy = self.center
-    #     else:
-    #         xy = self.xy
-    #     beams = []
-    #     for v in vertices:
-    #         beam = pyglet.shapes.Line(
-    #             *(xy+1)*self.grid_ref.cell_size,
-    #             *(v+1)*self.grid_ref.cell_size,
-    #             width=1, 
-    #             batch=self.batch, group=self.group)
-    #         beam.opacity = 60
-    #         beams.append(beam)
-    #     return beams
-    
-    # def triangles_origin_to_edges(self, edges):
-    #     triangles = []
-    #     for edge in edges:
-    #         tri = pyglet.shapes.Triangle(
-    #             *(self.center+1)*self.grid_ref.cell_size,
-    #             *(edge[2:]+1)*self.grid_ref.cell_size,
-    #             *(edge[:2]+1)*self.grid_ref.cell_size, 
-    #             color=(255, 255, 255), 
-    #             batch=self.batch, group=self.group)
-    #         tri.opacity = 40
-    #         triangles.append(tri)
-    #     return triangles
+    @staticmethod
+    @njit(nogil=True, parallel=True, cache=True)
+    def get_light_cols(all_xy, light_grid):
+        rgbo_map = np.zeros((len(all_xy), 6, 4))
+        for ii in prange(len(all_xy)):
+            x, y = all_xy[ii]
+            col = np.array([200, 200, 100, 0])
+            brightness = light_grid[x, y]
+            col[3] = brightness
+            rgbo_map[ii] = col
+        return rgbo_map.flatten().astype(np.int32)

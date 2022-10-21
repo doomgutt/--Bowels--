@@ -1,7 +1,7 @@
 import numpy as np
 import pyglet
 from pyglet.window import key
-from src.game import light_numba as light
+from src.game import light
 
 class Creature:
     def __init__(self, grid_ref, clock, batch, group, rgbo=None):
@@ -38,11 +38,12 @@ class Creature:
 
     # ==== Sprite ====
     def mk_sprite(self):
+        grid = self.grid_ref
         self.sprite = pyglet.shapes.Rectangle(
-            (self.xy[0] + 1) * self.grid_ref.cell_size,
-            (self.xy[1] + 1) * self.grid_ref.cell_size, 
-            self.grid_ref.cell_size,
-            self.grid_ref.cell_size, 
+            (self.xy[0] + 1 + grid.anchor[0]) * grid.cell_size,
+            (self.xy[1] + 1 + grid.anchor[1]) * grid.cell_size, 
+            grid.cell_size,
+            grid.cell_size, 
             color=self.rgbo[0], batch=self.batch, group=self.group)
         self.sprite.opacity = self.rgbo[1]
 
@@ -71,7 +72,7 @@ class Creature:
         self.sprite.position = (self.xy+1)*self.grid_ref.cell_size
 
     def no_wall(self, xy):
-        if self.grid_ref.layers[0, xy[0], xy[1]] == 1:
+        if self.grid_ref.layers[0, 1, xy[0], xy[1]] == 1:
             return False
         else:
             return True
@@ -82,7 +83,7 @@ class Creature:
 
 class LightBoi(Creature):
     def __init__(self, *args) -> None:
-        rgbo = [[255, 215, 100], 20]
+        rgbo = [[0, 255, 0], 255]
         super().__init__(*args, rgbo=rgbo)
         self.light = light.LightSource(self.grid_ref, self.xy, self.batch, self.group)
         self.id = 33
@@ -200,7 +201,7 @@ class Running_Square(Creature):
     # def wall_check(self, move_val, xy_ind):
     #     new_xy = self.xy.copy()
     #     new_xy[xy_ind] += move_val
-    #     if self.grid_ref.layers[0, new_xy[0], new_xy[1]] == 0:
+    #     if self.grid_ref.layers[0, 1, new_xy[0], new_xy[1]] == 0:
     #         return new_xy
-    #     elif self.grid_ref.layers[0, new_xy[0], new_xy[1]] == 1:
+    #     elif self.grid_ref.layers[0, 1, new_xy[0], new_xy[1]] == 1:
     #         return self.xy

@@ -55,7 +55,7 @@ from src.game import creatures
 
 # ==== Game Dims =============================================================
 # Use dims of x10 pixels
-window_dims = (800, 600)
+window_dims = (820, 920)
 cell_size = 10
 
 # ==== Pyglet Setup ==========================================================
@@ -71,14 +71,13 @@ group_0 = pyglet.graphics.OrderedGroup(0)
 group_1 = pyglet.graphics.OrderedGroup(1)
 group_2 = pyglet.graphics.OrderedGroup(2)
 group_3 = pyglet.graphics.OrderedGroup(3)
-# group1 = pyglet.graphics.Group()
 
 # --- time -------------
 clock1 = pyglet.clock.get_default()
 fps_display = graphics.fps_custom_display(window)
 
 # ==== Grid ==================================================================
-grid = discrete_space.Grid(cell_size, window_dims, batch1, group_0, 'default_map.png')
+grid = discrete_space.Grid(cell_size, batch1, group_0, 'default_map.png')
 
 # ==== Agents ================================================================
 grid.add_agent(creatures.LightBoi(grid, clock1, batch1, group_1))

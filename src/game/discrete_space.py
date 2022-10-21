@@ -6,14 +6,16 @@ from src.game import graphics
 
 """
 Grid layers:
-0 = floor and walls
-1 = agents
-2 = terrain
-4 = smell
+0, 0       = floor
+0, 1       = walls
+1, [1 -10] = light
+1, [11-20] = smell
+1, [21-30] = sound
+2, 0       = agents
 """
 
 class Grid:
-    def __init__(self, cell_size, dims, batch, group, floor_file=None):
+    def __init__(self, cell_size, batch, group, floor_file=None):
         """
         Dimensions
         ----------
@@ -28,21 +30,33 @@ class Grid:
         self.batch = batch
         self.group = group
         
+        # === making map ===
         self.cell_size = cell_size
-        self.dims = np.array(dims)//self.cell_size - 2
+        self.anchor = np.array([0, 30])
+
+        # --- loading map ---
+        if floor_file == None:
+            print("select a level to load")
+            self.dims = np.array((20, 20))
+        else:
+            print(f"loaded: {floor_file}")
+            floor_plan = self.import_map_floor(floor_file)
+            self.dims = floor_plan.shape
+
+        layers = (3, 4)
+        # self.number_of_layers = 4
+        self.layers = np.zeros((*layers, *self.dims))
         self.get_all_xy()
 
-        self.number_of_layers = 4
-        self.layers = np.zeros((self.number_of_layers, *self.dims))
+        # --- populating layers ---
+        self.layers[0, 1] = floor_plan
+
+        # === agents ====
         self.agents = []
 
-        # make colors
+        # === drawing ===
         self.mk_color_map()
-
-        # Populate grid
-        if floor_file:
-            print(f"loaded: {floor_file}")
-            self.layers[0] = self.import_map_floor(floor_file)
+        # self.rgbo_map = graphics.RGBOmap(self)
 
         # --- vertex list stuff ---
         self.mk_vlist()
@@ -55,7 +69,9 @@ class Grid:
 
     # ==== UPDATE =============================================================
     def update(self, dt):
-        self.agents_to_l1()
+        # self.rgbo_map.update(self.layers)
+        # self.vlist.colors = self.rgbo_map.rgbo_grid
+        self.agents_to_l20()
     
     # ==== DRAW ==============================================================
     def draw(self):
@@ -81,12 +97,13 @@ class Grid:
         )
 
         # vertices
-        l0_vlist = coords_to_v_list(self.all_xy, self.cell_size)
+        l0_vlist = coords_to_v_list(self.anchor, self.all_xy, self.cell_size)
         self.vlist.vertices[:len(l0_vlist)] = l0_vlist
 
         # colors
-        cols = self.get_l0_rgbo_list(self.all_xy, self.layers[0])
+        cols = self.get_l0_rgbo_list(self.all_xy, self.layers[0, 1])
         self.vlist.colors = cols
+        
 
     @staticmethod
     @njit(nogil=True, parallel=True, cache=True)
@@ -114,10 +131,10 @@ class Grid:
         return rgbo_map.flatten().astype(np.int32)
 
     # ==== AGENTS ============================================================
-    def agents_to_l1(self):
-        self.layers[1] = 0
+    def agents_to_l20(self):
+        self.layers[2, 0] = 0
         for agent in self.agents:
-            self.layers[1, agent.xy[0], agent.xy[1]] = agent.id
+            self.layers[2, 0, agent.xy[0], agent.xy[1]] = agent.id
 
     def add_agent(self, agent):
         self.agents.append(agent)
@@ -128,18 +145,6 @@ class Grid:
         x = np.arange(self.dims[0])
         y = np.arange(self.dims[1])
         self.all_xy = np.transpose([np.tile(x, len(y)), np.repeat(y, len(x))])
-
-
-    # def make_floor(self, rand_col=None):
-    #     l = 0 
-    #     self.squares = np.zeros(self.layers.shape, dtype='object')
-    #     for x, row in enumerate(self.layers[l]):
-    #         for y, val in enumerate(row):
-    #             if rand_col:
-    #                 rgbo = graphics.randomize_color(self.color_map['env'][val], rand_col)
-    #             else:
-    #                 rgbo = self.color_map['env'][val]
-    #             self.squares[l, x, y] = self.draw_square(x, y, rgbo)
 
     def import_map_floor(self, filename):
         dir_str = "./assets/maps/floors/"
@@ -168,22 +173,32 @@ class Grid:
             'agents' : agents
         }
 
-
 # === Pyglet drawing ======================================
 @njit(nogil=True, parallel=True, cache=True)
-def coords_to_v_list(xy_list, cell_size):
+def coords_to_v_list(anchor, xy_list, cell_size):
     template = np.array([
         [0, 0], [0, 1], [1, 0],
         [0, 1], [1, 0], [1, 1]])
     v_list = np.zeros((len(xy_list), 12))
     for ii in prange(len(xy_list)):
-        v_list[ii] = (template + xy_list[ii] + 1).flatten()
+        v_list[ii] = (template + xy_list[ii] + anchor + 1).flatten()
     return (v_list*cell_size).flatten().astype(np.int32)
 
 
 
 
 
+
+    # def make_floor(self, rand_col=None):
+    #     l = 0 
+    #     self.squares = np.zeros(self.layers.shape, dtype='object')
+    #     for x, row in enumerate(self.layers[l]):
+    #         for y, val in enumerate(row):
+    #             if rand_col:
+    #                 rgbo = graphics.randomize_color(self.color_map['env'][val], rand_col)
+    #             else:
+    #                 rgbo = self.color_map['env'][val]
+    #             self.squares[l, x, y] = self.draw_square(x, y, rgbo)
     
     # def draw_circle(self, x, y, rgbo, batch):
     #     """draws the square of appropriate size, color and offset"""
