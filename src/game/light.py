@@ -1,51 +1,16 @@
 import numpy as np
-import pyglet
-import time
 from numba import njit, prange
-from src.game import discrete_space as ds
+from src.game import physics
 
+class LightSource(physics.Radial):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
-class LightSource:
-    def __init__(self, xy, grid, density=360, ray_steps=1000):
-        self.batch = grid.batch
-        self.grid_ref = grid
-        self.xy = np.array(xy)
-        self.center = self.xy + [0.5, 0.5]
-        self.all_xy = grid.all_xy
-
-        # --- x_range ---
-        dims = self.grid_ref.dims
-        self.x_range = np.linspace(0, dims[0]-1, dims[0])
-        self.x_range = self.x_range.astype(int)
-
-        # --- radial setup ---
-        self.radial = np.linspace(0, 2*np.pi, density, endpoint=False)
-
-        # --- light setup ---
-        self.cell_brightness = 1
         self.rgbo = np.array([200, 200, 100, 0])
-        ray_len = np.sqrt(dims[0]**2 + dims[1]**2)
-        self.refl_ray_len = ray_len*2
-        self.ray_steps = ray_steps
-
-        # --- make light ---
-        self.rays = self.ray_array(self.radial, ray_len, self.ray_steps)
+        self.brightness = 0.8
 
     def mk_light_grid(self, object_grid):
-        return self.get_light_grid(self.center, self.rays, object_grid, self.cell_brightness)
-
-    @staticmethod
-    @njit(nogil=True, parallel=True, cache=True)
-    def ray_array(radial, r, ray_steps):
-        rays = np.zeros((len(radial), 2, ray_steps))
-        x_steps = np.sin(radial)*r
-        y_steps = np.cos(radial)*r
-        for ii in range(len(radial)):
-            x_coords = np.linspace(0, x_steps[ii], ray_steps)
-            y_coords = np.linspace(0, y_steps[ii], ray_steps)
-            rays[ii][0] = x_coords
-            rays[ii][1] = y_coords
-        return rays
+        return self.get_light_grid(self.center, self.rays, object_grid, self.brightness)
     
     # --- Update Light -------------------------------------------------
     @staticmethod
@@ -61,7 +26,6 @@ class LightSource:
                 else:
                     light_grid[x, y] += 30
                     break
-        # self_pos = np.round(xy)
         light_grid[int(xy[0]), int(xy[1])] = 10
         return light_grid
 

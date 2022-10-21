@@ -35,9 +35,6 @@ class Creature:
             "left" : key.LEFT, 
             "right": key.RIGHT}
 
-        # debug
-        self.debug = False
-
     # ==== Update ====
     def update(self, dt):
         pass
@@ -45,7 +42,11 @@ class Creature:
     def draw(self):
         pass
 
-    # ==== Movement ====
+    # ==== Sensing ====
+    def update_senses(grid):
+        pass
+
+    # ==== Moving ====
     def move(self, dt):
         if self.key_handler[self.controls["up"]]:  # up
             if self.no_wall(self.xy+[0,1]):

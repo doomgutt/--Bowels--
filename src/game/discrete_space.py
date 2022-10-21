@@ -100,13 +100,15 @@ class Grid:
         # l2_xy = (10, 40)
         # l3_xy = (60, 30)
         # random
-        l1_xy = (np.random.randint(5, 75), np.random.randint(5, 55))
-        l2_xy = (np.random.randint(5, 75), np.random.randint(5, 55))
-        l3_xy = (np.random.randint(5, 75), np.random.randint(5, 55))
+        l1_xy = self.rnd_non_wall_space(self.layers[0,1])
         self.add_light_source(light.LightSource(l1_xy, self))
         self.layers[0,1,l1_xy[0], l1_xy[1]] = 2
+
+        l2_xy = self.rnd_non_wall_space(self.layers[0,1])
         self.add_light_source(light.LightSource(l2_xy, self))
         self.layers[0,1,l2_xy[0], l2_xy[1]] = 2
+
+        l3_xy = self.rnd_non_wall_space(self.layers[0, 1])
         self.add_light_source(light.LightSource(l3_xy, self))
         self.layers[0,1,l3_xy[0], l3_xy[1]] = 2
 
@@ -235,23 +237,19 @@ class Grid:
         sprite.opacity = rgbo[-1]
         return sprite
 
-    def mk_color_map(self):
-        env = {
-            0 : [[20,  20,  20 ], 255],
-            1 : [[100, 100, 100], 255]
-        }
+    @staticmethod
+    @njit(nogil=True, cache=True)
+    def rnd_non_wall_space(wall_grid):
+        max_x = len(wall_grid)-3
+        max_y = len(wall_grid[1])-3
+        wall_check = True
+        while wall_check:
+            x = np.random.randint(3, max_x)
+            y = np.random.randint(3, max_y)
+            wall_check = (wall_grid[x, y] != 0)
+        return (x, y)
 
-        agents = {
-            1 : [(255, 0,   0  ), 255],
-            2 : [(0,   255, 0  ), 255],
-            3 : [(0,   0,   255), 255],
-            99 : [(200, 200, 200), 255]
-        }
 
-        self.color_map = {
-            'env'    : env,
-            'agents' : agents
-        }
 
 # === Pyglet drawing ======================================
 @njit(nogil=True, parallel=True, cache=True)
