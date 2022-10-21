@@ -77,26 +77,38 @@ class Grid:
         self.l00_vlist.colors = self.l00_rgbos(self.all_xy, self.layers[0, 0])
 
         # walls
-        self.l01_vlist = self.batch.add(v_num, tri, self.groups[3], v_st, "c4B/static")
+        self.l01_vlist = self.batch.add(v_num, tri, self.groups[1], v_st, "c4B/static")
         self.l01_vlist.vertices = vlist
         self.l01_vlist.colors = self.l01_rgbos(self.all_xy, self.layers[0, 1])
 
         # light
-        self.l11_vlist = self.batch.add(v_num, tri, self.groups[1], v_st, "c4B/dynamic")
+        self.l11_vlist = self.batch.add(v_num, tri, self.groups[2], v_st, "c4B/dynamic")
         self.l11_vlist.vertices = vlist
 
         # sound
         # smell
 
         # agents
-        self.l20_vlist = self.batch.add(v_num, tri, self.groups[2], v_st, "c4B/stream")
+        self.l20_vlist = self.batch.add(v_num, tri, self.groups[3], v_st, "c4B/stream")
         self.l20_vlist.vertices = vlist
     
     # ---- ENTITIES ----------------------------------------------------------
     def init_entities(self):
         # Lights
-        self.add_light_source(light.LightSource((26, 26), self, self.groups[1]))
-        self.layers[0,1,26,26] = 2
+        # custom
+        # l1_xy = (25, 25)
+        # l2_xy = (10, 40)
+        # l3_xy = (60, 30)
+        # random
+        l1_xy = (np.random.randint(5, 75), np.random.randint(5, 55))
+        l2_xy = (np.random.randint(5, 75), np.random.randint(5, 55))
+        l3_xy = (np.random.randint(5, 75), np.random.randint(5, 55))
+        self.add_light_source(light.LightSource(l1_xy, self))
+        self.layers[0,1,l1_xy[0], l1_xy[1]] = 2
+        self.add_light_source(light.LightSource(l2_xy, self))
+        self.layers[0,1,l2_xy[0], l2_xy[1]] = 2
+        self.add_light_source(light.LightSource(l3_xy, self))
+        self.layers[0,1,l3_xy[0], l3_xy[1]] = 2
 
         # Agents
         self.add_agent(creatures.Toe((30, 30), self, self.groups[2]))
@@ -106,7 +118,7 @@ class Grid:
     def update(self, dt):
         self.update_lights()
         self.update_agents()
-        self.update_vlist_cols()
+        self.update_vlist_cols() # this one drops fps to 30 from 60
     
     def update_agents(self):
         self.layers[2, 0] = 0
@@ -138,8 +150,8 @@ class Grid:
     # ==== DRAWING COLORS ====================================================
     @staticmethod
     @njit(nogil=True, parallel=True, cache=True)
-    def l00_rgbos(all_xy, l00, rand_val=10):
-        floor_rgbo = np.array([20, 20, 20, 255],)
+    def l00_rgbos(all_xy, l00, rand_val=6):
+        floor_rgbo = np.array([10, 10, 10, 255],)
         unknown    = np.array([255, 0, 0, 255])
 
         rgbo_map = np.zeros((len(all_xy), 6, 4))
@@ -156,13 +168,13 @@ class Grid:
     
     @staticmethod
     @njit(nogil=True, parallel=True, cache=True)
-    def l01_rgbos(all_xy, l01, rand_val=10):
+    def l01_rgbos(all_xy, l01, rand_val=6):
         """
         make color map for layers[0]
         """
 
         no_wall_rgbo = np.array([0, 0, 0, 0],)
-        wall_rgbo  = np.array([100, 100, 100, 255])
+        wall_rgbo  = np.array([30, 30, 30, 255])
         light_block_rgbo = np.array([120, 120, 80, 255])
         unknown_rgbo = np.array([0, 255, 0, 255])
 

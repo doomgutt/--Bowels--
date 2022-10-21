@@ -6,9 +6,8 @@ from src.game import discrete_space as ds
 
 
 class LightSource:
-    def __init__(self, xy, grid, group, density=360, ray_steps=1000):
+    def __init__(self, xy, grid, density=360, ray_steps=1000):
         self.batch = grid.batch
-        self.group = group
         self.grid_ref = grid
         self.xy = np.array(xy)
         self.center = self.xy + [0.5, 0.5]
@@ -23,11 +22,11 @@ class LightSource:
         self.radial = np.linspace(0, 2*np.pi, density, endpoint=False)
 
         # --- light setup ---
+        self.cell_brightness = 1
+        self.rgbo = np.array([200, 200, 100, 0])
         ray_len = np.sqrt(dims[0]**2 + dims[1]**2)
-        self.cell_brightness = 2
         self.refl_ray_len = ray_len*2
         self.ray_steps = ray_steps
-        self.rgbo = np.array([200, 200, 100, 0])
 
         # --- make light ---
         self.rays = self.ray_array(self.radial, ray_len, self.ray_steps)
@@ -58,9 +57,12 @@ class LightSource:
                 x = np.int64(rays[ii][0][jj] + xy[0])
                 y = np.int64(rays[ii][1][jj] + xy[1])
                 if object_grid[x, y] in (0, 2):
-                    light_grid[x, y] += brightness
+                    light_grid[x, y] += brightness*0.8
                 else:
+                    light_grid[x, y] += 30
                     break
+        # self_pos = np.round(xy)
+        light_grid[int(xy[0]), int(xy[1])] = 10
         return light_grid
 
     # @staticmethod

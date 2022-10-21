@@ -4,7 +4,7 @@ from pyglet.window import key
 from src.game import light
 
 class Creature:
-    def __init__(self, xy, grid, group, speed, a_id, rgbo):
+    def __init__(self, xy, grid, group, m_speed, u_speed, a_id, rgbo):
         # pyglet setup
         self.grid_ref = grid
         self.batch = grid.batch
@@ -12,11 +12,13 @@ class Creature:
 
         # movement
         self.xy = np.array(xy)
-        self.speed = speed
+        self.m_speed = m_speed
+        self.u_speed = u_speed
 
         # clock
         self.clock = grid.clock
-        self.clock.schedule_interval(self.update, 1/self.speed)
+        self.clock.schedule_interval(self.update, 1/self.u_speed)
+        self.clock.schedule_interval(self.move,   1/self.m_speed)
 
         # stats
         self.id = a_id
@@ -38,7 +40,7 @@ class Creature:
 
     # ==== Update ====
     def update(self, dt):
-        self.move(dt)
+        pass
 
     def draw(self):
         pass
@@ -96,26 +98,29 @@ class LightBoi(Creature):
 # =========================================================================
 class Toe(Creature):
     def __init__(self, xy, grid, group):
-        speed = 10
+        m_speed = 10
+        u_speed = 100
         a_id = 1
         rgbo = [100, 200, 0, 255]
-        super().__init__(xy, grid, group, speed, a_id, rgbo)
+        super().__init__(xy, grid, group, m_speed, u_speed, a_id, rgbo)
 
 # =========================================================================
 class Ear(Creature):
     def __init__(self, xy, grid, group):
-        speed = 20
+        m_speed = 20
+        u_speed = 100
         a_id = 2
         rgbo = [255, 0, 0, 255]
-        super().__init__(xy, grid, group, speed, a_id, rgbo)
+        super().__init__(xy, grid, group, m_speed, u_speed, a_id, rgbo)
 
 # =========================================================================
 class Nose(Creature):
     def __init__(self, xy, grid, group):
-        speed = 4
+        m_speed = 4
+        u_speed = 100
         a_id = 3
         rgbo = [0, 255, 0, 255]
-        super().__init__(xy, grid, group, speed, a_id, rgbo)
+        super().__init__(xy, grid, group, m_speed, u_speed, a_id, rgbo)
 
 # =========================================================================
 # class Running_Square(Creature):
