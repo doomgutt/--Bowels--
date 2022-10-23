@@ -10,24 +10,25 @@ class LightSource(physics.Radial):
         self.brightness = 0.8
 
     def mk_light_grid(self, object_grid):
-        return self.get_light_grid(self.center, self.rays, object_grid, self.brightness)
+        return self.get_light_grid(self.xy, self.rays, object_grid, self.brightness)
     
     # --- Update Light -------------------------------------------------
     @staticmethod
     @njit(nogil=True, cache=True)
     def get_light_grid(xy, rays, object_grid, brightness):
-        light_grid = np.zeros_like(object_grid)
+        ctr = xy + 0.5
+        light_grid = np.zeros(object_grid.shape, dtype=np.float64)
         for ii in prange(len(rays)):
             for jj in prange(len(rays[ii][0])):
-                x = np.int64(rays[ii][0][jj] + xy[0])
-                y = np.int64(rays[ii][1][jj] + xy[1])
+                x = np.int64(rays[ii][0][jj] + ctr[0])
+                y = np.int64(rays[ii][1][jj] + ctr[1])
                 if object_grid[x, y] in (0, 2):
-                    light_grid[x, y] += brightness*0.8
+                    light_grid[x, y] += brightness
                 else:
-                    light_grid[x, y] += 30
+                    light_grid[x, y] += brightness*30
                     break
-        light_grid[int(xy[0]), int(xy[1])] = 10
-        return light_grid
+        light_grid[int(ctr[0]), int(ctr[1])] = 10
+        return light_grid.astype(np.int64)
 
     # @staticmethod
     # @njit(nogil=True, parallel=True, cache=True)

@@ -8,8 +8,9 @@ from src.game import creatures
 
 """
 Grid layers:
-0, 0       = floor
-0, 1       = walls
+0, 0       = technical stuff
+0, 1       = floor
+0, 2       = walls
 1, [1 -10] = light
 1, [11-20] = smell
 1, [21-30] = sound
@@ -37,6 +38,7 @@ class Grid:
         # === making map ===
         self.cell_size = cell_size
         self.anchor = np.array([0, 30])
+        self.mk_rgbo_ref()
 
         # --- loading map ---
         if floor_file == None:
@@ -48,11 +50,11 @@ class Grid:
             self.dims = floor_plan.shape
 
         layer_dims = (3, 4)
-        self.layers = np.zeros((*layer_dims, *self.dims))
+        self.layers = np.zeros((*layer_dims, *self.dims), np.int64)
         self.get_all_xy()
 
         # --- populating layers ---
-        self.layers[0, 1] = floor_plan
+        self.layers[0,2] = floor_plan
 
         # === entities ====
         self.agents = []
@@ -74,12 +76,12 @@ class Grid:
         # floor
         self.l00_vlist = self.batch.add(v_num, tri, self.groups[0], v_st, "c4B/static")
         self.l00_vlist.vertices = vlist
-        self.l00_vlist.colors = self.l00_rgbos(self.all_xy, self.layers[0, 0])
+        self.l00_vlist.colors = self.l00_rgbos(self.all_xy, self.layers[0,1], self.rgbo_ref).flatten()
 
         # walls
         self.l01_vlist = self.batch.add(v_num, tri, self.groups[1], v_st, "c4B/static")
         self.l01_vlist.vertices = vlist
-        self.l01_vlist.colors = self.l01_rgbos(self.all_xy, self.layers[0, 1])
+        self.l01_vlist.colors = self.l01_rgbos(self.all_xy, self.layers[0,2], self.rgbo_ref).flatten()
 
         # light
         self.l11_vlist = self.batch.add(v_num, tri, self.groups[2], v_st, "c4B/dynamic")
@@ -100,17 +102,17 @@ class Grid:
         # l2_xy = (10, 40)
         # l3_xy = (60, 30)
         # random
-        l1_xy = self.rnd_non_wall_space(self.layers[0,1])
+        l1_xy = self.rnd_non_wall_space(self.layers[0,2])
         self.add_light_source(light.LightSource(l1_xy, self))
-        self.layers[0,1,l1_xy[0], l1_xy[1]] = 2
+        self.layers[0,2,l1_xy[0], l1_xy[1]] = 2
 
-        l2_xy = self.rnd_non_wall_space(self.layers[0,1])
+        l2_xy = self.rnd_non_wall_space(self.layers[0,2])
         self.add_light_source(light.LightSource(l2_xy, self))
-        self.layers[0,1,l2_xy[0], l2_xy[1]] = 2
+        self.layers[0,2,l2_xy[0], l2_xy[1]] = 2
 
-        l3_xy = self.rnd_non_wall_space(self.layers[0, 1])
+        l3_xy = self.rnd_non_wall_space(self.layers[0,2])
         self.add_light_source(light.LightSource(l3_xy, self))
-        self.layers[0,1,l3_xy[0], l3_xy[1]] = 2
+        self.layers[0,2,l3_xy[0], l3_xy[1]] = 2
 
         # Agents
         self.add_agent(creatures.Toe((30, 30), self, self.groups[2]))
@@ -129,15 +131,15 @@ class Grid:
 
     # njit this one?
     def update_lights(self):
-        object_grid = self.layers[0,1] + self.layers[2,0]
+        object_grid = self.layers[0,2] + self.layers[2,0]
         self.layers[1, 1] = 0
         for l_source in self.light_sources:
             self.layers[1, 1] += l_source.mk_light_grid(object_grid)
-        np.clip(self.layers[1, 1], 0, 255).astype(np.int32)
+        self.layers[1, 1] = np.clip(self.layers[1, 1], 0, 255)
 
     def update_vlist_cols(self):
         # light
-        self.l11_vlist.colors = self.l11_rgbos(self.all_xy, self.layers[1,1])
+        self.l11_vlist.colors = self.l11_rgbos(self.all_xy, self.layers[1,1], self.rgbo_ref).flatten()
         # agents
         self.l20_vlist = 0
 
@@ -148,68 +150,41 @@ class Grid:
     def add_light_source(self, light_source):
         self.light_sources.append(light_source)    
 
-
     # ==== DRAWING COLORS ====================================================
     @staticmethod
     @njit(nogil=True, parallel=True, cache=True)
-    def l00_rgbos(all_xy, l00, rand_val=6):
-        floor_rgbo = np.array([10, 10, 10, 255],)
-        unknown    = np.array([255, 0, 0, 255])
-
-        rgbo_map = np.zeros((len(all_xy), 6, 4))
+    def l00_rgbos(all_xy, l00, rgbo_ref, rand_val=6):
+        rgbo_map = np.zeros((len(all_xy), 6, 4), dtype=np.int64)
         for ii in prange(len(all_xy)):
             x, y = all_xy[ii]
-            if l00[x,y] == 0:
-                col = floor_rgbo.copy()
-            else:
-                col = unknown
+            col = rgbo_ref[0,1,l00[x,y]].copy()
             col = graphics.rand_col(col, 'bw', rand_val)
             rgbo_map[ii] = col
-
-        return rgbo_map.flatten().astype(np.int32)
+        return rgbo_map
     
     @staticmethod
     @njit(nogil=True, parallel=True, cache=True)
-    def l01_rgbos(all_xy, l01, rand_val=6):
-        """
-        make color map for layers[0]
-        """
-
-        no_wall_rgbo = np.array([0, 0, 0, 0],)
-        wall_rgbo  = np.array([30, 30, 30, 255])
-        light_block_rgbo = np.array([120, 120, 80, 255])
-        unknown_rgbo = np.array([0, 255, 0, 255])
-
-        rgbo_map = np.zeros((len(all_xy), 6, 4))
+    def l01_rgbos(all_xy, l01, rgbo_ref, rand_val=6):
+        rgbo_map = np.zeros((len(all_xy), 6, 4), dtype=np.int64)
         for ii in prange(len(all_xy)):
             x, y = all_xy[ii]
-            if l01[x,y] == 0:
-                col = no_wall_rgbo.copy()
-            elif l01[x,y] == 1:
-                col = wall_rgbo.copy()
-            elif l01[x,y] == 2:
-                col = light_block_rgbo.copy()
-            else:
-                col = unknown_rgbo
+            col = rgbo_ref[0,2,l01[x, y]].copy()
             col = graphics.rand_col(col, 'bw', rand_val)
             rgbo_map[ii] = col
-
-        return rgbo_map.flatten().astype(np.int32)
+        return rgbo_map
     
     @staticmethod
     @njit(nogil=True, parallel=True, cache=True)
-    def l11_rgbos(all_xy, light_grid, rand_val=2):
-        light_rgbo = np.array([200, 200, 100, 0])
-
-        rgbo_map = np.zeros((len(all_xy), 6, 4))
+    def l11_rgbos(all_xy, light_grid, rgbo_ref, rand_val=2):
+        rgbo_map = np.zeros((len(all_xy), 6, 4), dtype=np.float64)
         for ii in prange(len(all_xy)):
             x, y = all_xy[ii]
             brightness = light_grid[x, y]
-            col = light_rgbo.copy()
+            col = rgbo_ref[1,1,1].copy()
             col[3] = brightness
             rgbo_map[ii] = col
-        rgbo_map = np.clip(rgbo_map, 0, 255).flatten()
-        return rgbo_map.astype(np.int32)
+        # rgbo_map = np.clip(rgbo_map, 0, 255)
+        return rgbo_map.astype(np.int64)
 
     # ==== GRID ==============================================================
     def get_all_xy(self):
@@ -223,9 +198,38 @@ class Grid:
         img = Image.open(filepath)
         img_arr = np.delete(np.asarray(img), np.s_[1:], 2)
         img_arr = np.squeeze(img_arr) // 255
-        return img_arr.T
+        return img_arr.T.astype(np.int64)
 
     # ==== UTILITY ===========================================================
+    def mk_rgbo_ref(self):
+        self.rgbo_ref = np.zeros((3, 5, 5, 4), dtype=np.int64)
+        self.rgbo_ref[:, :, :] = [255, 0, 0, 255]
+        # basics
+        self.rgbo_ref[0, 0, 0] = [0,   0,   0,   255]
+        self.rgbo_ref[0, 0, 1] = [255, 0,   0,   255]
+        self.rgbo_ref[0, 0, 2] = [0,   255, 0,   255]
+        self.rgbo_ref[0, 0, 3] = [0,   0,   255, 255]
+        self.rgbo_ref[0, 0, 4] = [255, 255, 255, 255]
+
+        # floor
+        self.rgbo_ref[0, 1, 0] = [10,  10,  10, 255]
+
+        # walls
+        self.rgbo_ref[0, 2, 0] = [0,   0,   0,  0]
+        self.rgbo_ref[0, 2, 1] = [30,  30,  30, 255]
+        self.rgbo_ref[0, 2, 2] = [120, 120, 80, 255]
+
+        # physics
+        self.rgbo_ref[1, 1, 0] = [0,   0,   0,   0]
+        self.rgbo_ref[1, 1, 1] = [200, 200, 100, 0]
+
+        # agents
+        # self.rgbo_ref[2, 0] = None
+        # self.rgbo_ref[2, 0] = None
+        # self.rgbo_ref[2, 0] = None
+        # self.rgbo_ref[2, 0] = None
+        # self.rgbo_ref[2, 0] = None
+
 
     def draw_square(self, xy, rgbo, group):
         sprite = pyglet.shapes.Rectangle(

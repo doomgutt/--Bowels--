@@ -67,7 +67,7 @@ class Creature:
         self.sprite.position = pos
 
     def no_wall(self, xy):
-        if self.grid_ref.layers[0, 1, xy[0], xy[1]] == 0:
+        if self.grid_ref.layers[0, 2, xy[0], xy[1]] == 0:
             return True
         else:
             return False

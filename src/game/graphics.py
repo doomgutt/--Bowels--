@@ -27,6 +27,17 @@ def fps_custom_display(window):
     return fps_display
 
 
+@njit(nogil=True, parallel=True, cache=True)
+def mix_rgbo(rgbo1, rgbo2):
+    """
+    first rgbo has to have opacity = 255
+    """
+    if rgbo1[-1] == 0:
+        return rgbo1
+    new_rgbo = np.array([0, 0, 0, 255], np.float64)
+    new_rgbo[:3] = rgbo1[:3]*(1-rgbo2[-1]/255) + rgbo2[:3]*(rgbo2[-1]/255)
+    return new_rgbo
+
 
 # class RGBOmap:
 #     """
@@ -181,16 +192,6 @@ def fps_custom_display(window):
 #     return new_rgbo.astype(np.int64)
 
 
-# @njit(nogil=True, parallel=True, cache=True)
-# def mix_rgbo(rgbo1, rgbo2):
-#     """
-#     first rgbo has to have opacity = 255
-#     """
-#     if rgbo1[-1] == 0:
-#         return rgbo1
-#     new_rgbo = np.array([0, 0, 0, 255], np.float64)
-#     new_rgbo[:3] = rgbo1[:3]*(1-rgbo2[-1]/255) + rgbo2[:3]*(rgbo2[-1]/255)
-#     return new_rgbo
 
 
 
