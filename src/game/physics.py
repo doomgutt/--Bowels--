@@ -1,6 +1,11 @@
 import numpy as np
 from numba import njit, prange
 
+# === NUMBA SETUP ============
+PARALLEL_TOGGLE = False
+NOGIL_TOGGLE = True
+# ============================
+
 class Radial:
     def __init__(self, xy, grid, density=360, ray_steps=1000):
         self.grid_ref = grid
@@ -10,21 +15,11 @@ class Radial:
 
         # --- x_range ---
         dims = self.grid_ref.dims
-        self.x_range = np.linspace(0, dims[0]-1, dims[0])
-        self.x_range = self.x_range.astype(int)
+        self.x_range = np.linspace(0, dims[0]-1, dims[0], dtype=int)
 
         # --- radial setup ---
         self.ray_steps = ray_steps
         self.set_radial(density, roll=0)
-        # self.radial = np.linspace(0, 2*np.pi, density, endpoint=False)
-        # ray_len = np.sqrt(dims[0]**2 + dims[1]**2)
-        # self.rays = self.ray_array(self.radial, ray_len, self.ray_steps)
-
-        # self.refl_ray_len = ray_len*2
-
-
-    # def mk_light_grid(self, object_grid):
-    #     return self.get_light_grid(self.xy, self.rays, object_grid, self.cell_brightness)
 
     def set_radial(self, density, roll):
         radial = np.linspace(0, 2*np.pi, density, endpoint=False)
@@ -34,7 +29,7 @@ class Radial:
         self.rays = self.ray_array(self.radial, ray_len, self.ray_steps)
 
     @staticmethod
-    @njit(nogil=True, parallel=True, cache=True)
+    @njit(nogil=NOGIL_TOGGLE, parallel=PARALLEL_TOGGLE, cache=True)
     def ray_array(radial, r, ray_steps):
         rays = np.zeros((len(radial), 2, ray_steps))
         x_steps = np.sin(radial)*r
@@ -47,7 +42,7 @@ class Radial:
         return rays
     
     @staticmethod
-    @njit(nogil=True, parallel=True, cache=True)
+    @njit(nogil=NOGIL_TOGGLE, parallel=PARALLEL_TOGGLE, cache=True)
     def get_collisions(xy, rays, object_grid):
         ctr = xy + 0.5
         coll_ii_jj = np.zeros((len(rays), 1))
@@ -84,7 +79,7 @@ class Radial:
 
     # --- Update Light -------------------------------------------------
     # @staticmethod
-    # @njit(nogil=True, cache=True)
+    # @njit(nogil=NOGIL_TOGGLE, cache=True)
     # def get_light_grid(xy, rays, object_grid, brightness):
     #     light_grid = np.zeros_like(object_grid)
     #     for ii in prange(len(rays)):

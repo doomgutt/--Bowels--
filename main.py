@@ -49,7 +49,7 @@
 # ============================================================================
 import pyglet
 from src.game import graphics
-from src.game import discrete_space
+from src.game import grid_main
 
 # ==== Game Dims =============================================================
 # Use dims of x10 pixels
@@ -76,7 +76,7 @@ clock1 = pyglet.clock.get_default()
 fps_display = graphics.fps_custom_display(window)
 
 # ==== Grid ==================================================================
-grid = discrete_space.Grid(cell_size, clock1, batch1, groups, 'default_map.png')
+grid = grid_main.Grid(cell_size, clock1, batch1, groups, 'default_map.png')
 
 # ==== Controls ==============================================================
 for agent in grid.agents:

@@ -2,6 +2,11 @@ import numpy as np
 from numba import njit, prange
 from src.game import physics
 
+# === NUMBA SETUP ============
+PARALLEL_TOGGLE = False
+NOGIL_TOGGLE = True
+# ============================
+
 class LightSource(physics.Radial):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -14,7 +19,7 @@ class LightSource(physics.Radial):
     
     # --- Update Light -------------------------------------------------
     @staticmethod
-    @njit(nogil=True, cache=True)
+    @njit(nogil=NOGIL_TOGGLE, cache=True)
     def get_light_grid(xy, rays, object_grid, brightness):
         ctr = xy + 0.5
         light_grid = np.zeros(object_grid.shape, dtype=np.float64)
@@ -25,13 +30,13 @@ class LightSource(physics.Radial):
                 if object_grid[x, y] in (0, 2):
                     light_grid[x, y] += brightness
                 else:
-                    light_grid[x, y] += brightness*30
+                    light_grid[x, y] += brightness*20
                     break
-        light_grid[int(ctr[0]), int(ctr[1])] = 10
+        # light_grid[int(ctr[0]), int(ctr[1])] = 10
         return light_grid.astype(np.int64)
 
     # @staticmethod
-    # @njit(nogil=True, parallel=True, cache=True)
+    # @njit(nogil=NOGIL_TOGGLE, parallel=PARALLEL_TOGGLE, cache=True)
     # def get_light_cols(all_xy, light_grid, rgbo):
     #     rgbo_map = np.zeros((len(all_xy), 6, 4))
     #     for ii in prange(len(all_xy)):
@@ -45,7 +50,7 @@ class LightSource(physics.Radial):
     # === Ray Stuff =================================================
 
     # @staticmethod
-    # @njit(nogil=True, cache=True)
+    # @njit(nogil=NOGIL_TOGGLE, cache=True)
     # def get_light_rays(xy, rays, grid):
     #     ray_ends = np.zeros((len(rays), 2))
     #     for ii, ray in enumerate(rays):
@@ -60,7 +65,7 @@ class LightSource(physics.Radial):
 
     # # --- experimental ------------------------------------------------
     # @staticmethod
-    # @njit(nogil=True, cache=True)
+    # @njit(nogil=NOGIL_TOGGLE, cache=True)
     # def get_light_rays_w_reflection(xy, rays, grid):
     #     ray_ends = np.zeros((len(rays), 2))
     #     for ii, ray in enumerate(rays):

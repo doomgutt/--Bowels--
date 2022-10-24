@@ -5,6 +5,8 @@ from PIL import Image
 from src.game import graphics
 from src.game import light
 from src.game import creatures
+from src.game import open_gl_tools
+from src.game import grid_rgbo
 
 """
 Grid layers:
@@ -17,6 +19,12 @@ Grid layers:
 2, 0       = agents
 """
 
+# === NUMBA SETUP ============
+PARALLEL_TOGGLE = False
+NOGIL_TOGGLE = True
+# ============================
+
+# === GRID STUFF =============
 class Grid:
     def __init__(self, cell_size, clock, batch, groups, floor_file=None):
         """
@@ -30,6 +38,7 @@ class Grid:
         layer 1: world
         layer 2: characters
         """
+        # === Pyglet ===
         self.batch = batch
         self.groups = groups
         self.clock = clock
@@ -38,7 +47,6 @@ class Grid:
         # === making map ===
         self.cell_size = cell_size
         self.anchor = np.array([0, 30])
-        self.mk_rgbo_ref()
 
         # --- loading map ---
         if floor_file == None:
@@ -50,13 +58,17 @@ class Grid:
             self.dims = floor_plan.shape
 
         layer_dims = (3, 4)
-        self.layers = np.zeros((*layer_dims, *self.dims), np.int64)
+        self.layers = np.zeros((*layer_dims, *self.dims), dtype='i8')
         self.get_all_xy()
 
         # --- populating layers ---
         self.layers[0,2] = floor_plan
 
-        # === entities ====
+        # === RGBO stuff ===
+        self.rgbo_ref = grid_rgbo.mk_rgbo_ref()
+        self.rgbo_grid = np.zeros((*self.layers.shape, 4), dtype=np.int64)
+
+        # === entities ===
         self.agents = []
         self.light_sources = []
         self.init_entities()
@@ -69,47 +81,36 @@ class Grid:
     def make_vertex_lists(self):
         # setup
         v_num = np.prod(self.dims)*6
-        vlist = coords_to_v_list(self.anchor, self.all_xy, self.cell_size)
+        vlist = open_gl_tools.coords_to_v_list(self.anchor, self.all_xy, self.cell_size)
         v_st = "v2i/static"
         tri = pyglet.gl.GL_TRIANGLES
 
-        # floor
-        self.l00_vlist = self.batch.add(v_num, tri, self.groups[0], v_st, "c4B/static")
-        self.l00_vlist.vertices = vlist
-        self.l00_vlist.colors = self.l00_rgbos(self.all_xy, self.layers[0,1], self.rgbo_ref).flatten()
+        # terrain
+        self.v_list = self.batch.add(v_num, tri, self.groups[0], v_st, "c4f/stream")
+        self.v_list.vertices = vlist
 
-        # walls
-        self.l01_vlist = self.batch.add(v_num, tri, self.groups[1], v_st, "c4B/static")
-        self.l01_vlist.vertices = vlist
-        self.l01_vlist.colors = self.l01_rgbos(self.all_xy, self.layers[0,2], self.rgbo_ref).flatten()
+        r_val = 3
+        rgbo_l01 = grid_rgbo.layer_to_rgbo(self.layers, 0, 1, self.rgbo_ref)
+        rgbo_l01[:,:,:3] += np.random.randint(-r_val, r_val, (80, 60, 1))/100
+        rgbo_l02 = grid_rgbo.layer_to_rgbo(self.layers, 0, 2, self.rgbo_ref)
+        rgbo_l02[:,:,:3] += np.random.randint(-r_val, r_val, (80, 60, 1))/100
+        self.terrain_rgbo = grid_rgbo.mix_2_rgbo_grids(rgbo_l01, rgbo_l02)
 
-        # light
-        self.l11_vlist = self.batch.add(v_num, tri, self.groups[2], v_st, "c4B/dynamic")
-        self.l11_vlist.vertices = vlist
-
-        # sound
-        # smell
-
-        # agents
-        self.l20_vlist = self.batch.add(v_num, tri, self.groups[3], v_st, "c4B/stream")
-        self.l20_vlist.vertices = vlist
     
     # ---- ENTITIES ----------------------------------------------------------
     def init_entities(self):
         # Lights
-        # custom
         # l1_xy = (25, 25)
-        # l2_xy = (10, 40)
-        # l3_xy = (60, 30)
-        # random
         l1_xy = self.rnd_non_wall_space(self.layers[0,2])
         self.add_light_source(light.LightSource(l1_xy, self))
         self.layers[0,2,l1_xy[0], l1_xy[1]] = 2
 
+        # l2_xy = (10, 40)
         l2_xy = self.rnd_non_wall_space(self.layers[0,2])
         self.add_light_source(light.LightSource(l2_xy, self))
         self.layers[0,2,l2_xy[0], l2_xy[1]] = 2
 
+        # l3_xy = (60, 30)
         l3_xy = self.rnd_non_wall_space(self.layers[0,2])
         self.add_light_source(light.LightSource(l3_xy, self))
         self.layers[0,2,l3_xy[0], l3_xy[1]] = 2
@@ -120,9 +121,22 @@ class Grid:
 
     # ==== UPDATES =============================================================
     def update(self, dt):
-        self.update_lights()
+
         self.update_agents()
-        self.update_vlist_cols() # this one drops fps to 30 from 60
+        self.update_lights()
+        
+        self.draw_map(4, 0.3)
+
+        
+    
+    def draw_map(self, br_mult, br_min):
+        rgbo_l20 = grid_rgbo.layer_to_rgbo(self.layers, 2, 0, self.rgbo_ref)
+        rgbo_l11 = grid_rgbo.layer_to_rgbo(self.layers, 1, 1, self.rgbo_ref)
+        rgbog = grid_rgbo.mix_2_rgbo_grids(self.terrain_rgbo, rgbo_l20)
+        rgbog = grid_rgbo.mix_2_rgbo_grids(rgbog, rgbo_l11)
+        rgbog[:,:,-1] = np.clip(br_mult*self.layers[1,1]/255, br_min, 1)
+        self.v_list.colors = open_gl_tools.grid_to_clist(self.all_xy, rgbog)
+
     
     def update_agents(self):
         self.layers[2, 0] = 0
@@ -150,46 +164,14 @@ class Grid:
     def add_light_source(self, light_source):
         self.light_sources.append(light_source)    
 
-    # ==== DRAWING COLORS ====================================================
-    @staticmethod
-    @njit(nogil=True, parallel=True, cache=True)
-    def l00_rgbos(all_xy, l00, rgbo_ref, rand_val=6):
-        rgbo_map = np.zeros((len(all_xy), 6, 4), dtype=np.int64)
-        for ii in prange(len(all_xy)):
-            x, y = all_xy[ii]
-            col = rgbo_ref[0,1,l00[x,y]].copy()
-            col = graphics.rand_col(col, 'bw', rand_val)
-            rgbo_map[ii] = col
-        return rgbo_map
-    
-    @staticmethod
-    @njit(nogil=True, parallel=True, cache=True)
-    def l01_rgbos(all_xy, l01, rgbo_ref, rand_val=6):
-        rgbo_map = np.zeros((len(all_xy), 6, 4), dtype=np.int64)
-        for ii in prange(len(all_xy)):
-            x, y = all_xy[ii]
-            col = rgbo_ref[0,2,l01[x, y]].copy()
-            col = graphics.rand_col(col, 'bw', rand_val)
-            rgbo_map[ii] = col
-        return rgbo_map
-    
-    @staticmethod
-    @njit(nogil=True, parallel=True, cache=True)
-    def l11_rgbos(all_xy, light_grid, rgbo_ref, rand_val=2):
-        rgbo_map = np.zeros((len(all_xy), 6, 4), dtype=np.float64)
-        for ii in prange(len(all_xy)):
-            x, y = all_xy[ii]
-            brightness = light_grid[x, y]
-            col = rgbo_ref[1,1,1].copy()
-            col[3] = brightness
-            rgbo_map[ii] = col
-        # rgbo_map = np.clip(rgbo_map, 0, 255)
-        return rgbo_map.astype(np.int64)
+    # ==== RGBO GRID =========================================================
+    def layers_to_rgbo(self):
+        pass
 
     # ==== GRID ==============================================================
     def get_all_xy(self):
-        x = np.arange(self.dims[0])
-        y = np.arange(self.dims[1])
+        x = np.arange(self.dims[0], dtype='i8')
+        y = np.arange(self.dims[1], dtype='i8')
         self.all_xy = np.transpose([np.tile(x, len(y)), np.repeat(y, len(x))])
 
     def import_map_floor(self, filename):
@@ -201,35 +183,6 @@ class Grid:
         return img_arr.T.astype(np.int64)
 
     # ==== UTILITY ===========================================================
-    def mk_rgbo_ref(self):
-        self.rgbo_ref = np.zeros((3, 5, 5, 4), dtype=np.int64)
-        self.rgbo_ref[:, :, :] = [255, 0, 0, 255]
-        # basics
-        self.rgbo_ref[0, 0, 0] = [0,   0,   0,   255]
-        self.rgbo_ref[0, 0, 1] = [255, 0,   0,   255]
-        self.rgbo_ref[0, 0, 2] = [0,   255, 0,   255]
-        self.rgbo_ref[0, 0, 3] = [0,   0,   255, 255]
-        self.rgbo_ref[0, 0, 4] = [255, 255, 255, 255]
-
-        # floor
-        self.rgbo_ref[0, 1, 0] = [10,  10,  10, 255]
-
-        # walls
-        self.rgbo_ref[0, 2, 0] = [0,   0,   0,  0]
-        self.rgbo_ref[0, 2, 1] = [30,  30,  30, 255]
-        self.rgbo_ref[0, 2, 2] = [120, 120, 80, 255]
-
-        # physics
-        self.rgbo_ref[1, 1, 0] = [0,   0,   0,   0]
-        self.rgbo_ref[1, 1, 1] = [200, 200, 100, 0]
-
-        # agents
-        # self.rgbo_ref[2, 0] = None
-        # self.rgbo_ref[2, 0] = None
-        # self.rgbo_ref[2, 0] = None
-        # self.rgbo_ref[2, 0] = None
-        # self.rgbo_ref[2, 0] = None
-
 
     def draw_square(self, xy, rgbo, group):
         sprite = pyglet.shapes.Rectangle(
@@ -242,7 +195,7 @@ class Grid:
         return sprite
 
     @staticmethod
-    @njit(nogil=True, cache=True)
+    @njit(nogil=NOGIL_TOGGLE, cache=True)
     def rnd_non_wall_space(wall_grid):
         max_x = len(wall_grid)-3
         max_y = len(wall_grid[1])-3
@@ -256,15 +209,7 @@ class Grid:
 
 
 # === Pyglet drawing ======================================
-@njit(nogil=True, parallel=True, cache=True)
-def coords_to_v_list(anchor, xy_list, cell_size):
-    template = np.array([
-        [0, 0], [0, 1], [1, 0],
-        [0, 1], [1, 0], [1, 1]])
-    v_list = np.zeros((len(xy_list), 12))
-    for ii in prange(len(xy_list)):
-        v_list[ii] = (template + xy_list[ii] + anchor + 1).flatten()
-    return (v_list*cell_size).flatten().astype(np.int32)
+
 
 
 

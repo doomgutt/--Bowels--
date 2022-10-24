@@ -3,18 +3,22 @@ from src.game import physics
 # import pyglet
 # import time
 
+# === NUMBA SETUP ============
+PARALLEL_TOGGLE = False
+NOGIL_TOGGLE = True
+# ============================
+
 class Eyes():
     pass
-
 
 class Ears():
     pass
 
-
 class Nose():
     pass
 
-
+class Touch():
+    pass
 
 
 class SightGrid:
@@ -24,8 +28,17 @@ class SightGrid:
         self.set_sight_density(10)
         self.rays = self.RADIAL.rays
 
-    def update(self, xy):
+    def update(self, xy, grid):
         self.xy = xy
+
+        # floor
+        grid.layers[0, 1]
+        # walls
+        grid.layers[0, 2]
+        # agents
+        grid.layers[2, 0]
+        # light
+        grid.layers[1, 1]
 
     @staticmethod
     def sight_grid(xy, light_grid, collisions_coords):

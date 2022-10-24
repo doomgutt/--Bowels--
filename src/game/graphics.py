@@ -1,8 +1,12 @@
-from re import S
 import numpy as np
 import pyglet
-from numba import njit, prange
+from numba import njit, prange, guvectorize
 import time
+
+# === NUMBA SETUP ============
+PARALLEL_TOGGLE = False
+NOGIL_TOGGLE = True
+# ============================
 
 @njit
 def rand_col(rgbo, type, amount=10):
@@ -27,16 +31,6 @@ def fps_custom_display(window):
     return fps_display
 
 
-@njit(nogil=True, parallel=True, cache=True)
-def mix_rgbo(rgbo1, rgbo2):
-    """
-    first rgbo has to have opacity = 255
-    """
-    if rgbo1[-1] == 0:
-        return rgbo1
-    new_rgbo = np.array([0, 0, 0, 255], np.float64)
-    new_rgbo[:3] = rgbo1[:3]*(1-rgbo2[-1]/255) + rgbo2[:3]*(rgbo2[-1]/255)
-    return new_rgbo
 
 
 # class RGBOmap:
@@ -95,7 +89,7 @@ def mix_rgbo(rgbo1, rgbo2):
 #         self.rgbo_grid = make_rgbo_grid(self.all_xy, layers, self.lmap)
 
 # # -------------------------------
-# @njit(nogil=True, cache=True)
+# @njit(nogil=NOGIL_TOGGLE, cache=True)
 # def make_rgbo_grid(all_xy, layers, lmap):
 #     # t0 = time.time()
 #     mixed_grid = mk_rgbo_list(all_xy, layers, lmap)
@@ -107,7 +101,7 @@ def mix_rgbo(rgbo1, rgbo2):
 #     # print(t2-t1)
 #     return final_grid
 
-# @njit(nogil=True, parallel=True, cache=True)
+# @njit(nogil=NOGIL_TOGGLE, parallel=PARALLEL_TOGGLE, cache=True)
 # def to_vlist_rgbo(all_xy, mixed_grid):
 #     sh = mixed_grid.shape
 #     expanded_grid = np.zeros((sh[0], sh[1], 6, 4))
@@ -116,7 +110,7 @@ def mix_rgbo(rgbo1, rgbo2):
 #         expanded_grid[x,y] = mixed_grid[x,y]
 #     return expanded_grid.astype(np.int64).flatten()
 
-# @njit(nogil=True, parallel=True, cache=True)
+# @njit(nogil=NOGIL_TOGGLE, parallel=PARALLEL_TOGGLE, cache=True)
 # def mk_rgbo_list(all_xy, l, lmap):
 #     sh = l.shape
 #     rgbo = np.zeros((sh[2], sh[3], 4))
@@ -131,7 +125,7 @@ def mix_rgbo(rgbo1, rgbo2):
 #         rgbo[x, y] = mix_rgbo_list(rgbo_list)
 #     return np.clip(rgbo, 0, 255)
 
-# # @njit(nogil=True, parallel=True, cache=True)
+# # @njit(nogil=NOGIL_TOGGLE, parallel=PARALLEL_TOGGLE, cache=True)
 # # def mk_rgbo_list(all_xy, l, lmap):
 # #     sh = l.shape
 # #     rgbo_list = np.zeros((sh[0]*sh[1], sh[2], sh[3], 4))
@@ -146,26 +140,26 @@ def mix_rgbo(rgbo1, rgbo2):
 # #     return np.clip(rgbo, 0, 255)
 
 # # -------------------------------
-# @njit(nogil=True, cache=True)
+# @njit(nogil=NOGIL_TOGGLE, cache=True)
 # def floor_rgbo(val, rgbo):
 #     return rgbo
 
-# @njit(nogil=True, cache=True)
+# @njit(nogil=NOGIL_TOGGLE, cache=True)
 # def walls_rgbo(val, rgbo):
 #     return val*rgbo
 
-# @njit(nogil=True, cache=True)
+# @njit(nogil=NOGIL_TOGGLE, cache=True)
 # def light_rgbo(val, rgbo):
 #     col = rgbo.copy()
 #     col[3] = val
 #     return col
 
-# @njit(nogil=True, cache=True)
+# @njit(nogil=NOGIL_TOGGLE, cache=True)
 # def agent_rgbo(val, rgbo):
 #     return rgbo
 
 
-# # @njit(nogil=True, parallel=True, cache=True)
+# # @njit(nogil=NOGIL_TOGGLE, parallel=PARALLEL_TOGGLE, cache=True)
 # # def mix_rgbo_grids(all_xy, rgbo_list):
 # #     rgbo = np.zeros(rgbo_list.shape[1:])
 # #     for ii in prange(len(all_xy)):
@@ -174,7 +168,7 @@ def mix_rgbo(rgbo1, rgbo2):
 # #     return rgbo
 
 
-# @njit(nogil=True, cache=True)
+# @njit(nogil=NOGIL_TOGGLE, cache=True)
 # def mix_rgbo_list(rgbo_list):
 #     # find strongest opacity
 #     rgbo_list = rgbo_list.astype(np.float64)

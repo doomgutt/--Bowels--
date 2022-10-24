@@ -25,7 +25,7 @@ class Creature:
         self.rgbo = rgbo
 
         # sprite
-        self.sprite = grid.draw_square(self.xy, self.rgbo, self.group)
+        # self.sprite = grid.draw_square(self.xy, self.rgbo, self.group)
 
         # controls
         self.key_handler = key.KeyStateHandler()
@@ -63,8 +63,8 @@ class Creature:
                 self.xy += [1,0]
         
         # move sprite
-        pos = (self.xy+1+self.grid_ref.anchor)*self.grid_ref.cell_size
-        self.sprite.position = pos
+        # pos = (self.xy+1+self.grid_ref.anchor)*self.grid_ref.cell_size
+        # self.sprite.position = pos
 
     def no_wall(self, xy):
         if self.grid_ref.layers[0, 2, xy[0], xy[1]] == 0:
@@ -74,28 +74,6 @@ class Creature:
 
 
 # =========================================================================
-# =========================================================================
-
-class LightBoi(Creature):
-    def __init__(self, *args) -> None:
-        rgbo = [0, 255, 0, 255]
-        super().__init__(*args, rgbo=rgbo)
-        self.light = light.LightSource(self.grid_ref, self.xy, self.batch, self.group)
-        self.id = 33
-        self.xy = np.array([30, 30])
-        self.clock_speed = 1 
-        self.clock.schedule_interval(self.update, self.clock_speed)
-    
-    def move(self, dt):
-        super().move(dt)
-        self.light.xy = self.xy
-        self.light.center = self.xy + [0.5, 0.5]
-    
-    def update(self, dt):
-        super().update(dt)
-        self.light.update(dt)
-
-
 # =========================================================================
 class Toe(Creature):
     def __init__(self, xy, grid, group):
@@ -124,17 +102,6 @@ class Nose(Creature):
         super().__init__(xy, grid, group, m_speed, u_speed, a_id, rgbo)
 
 # =========================================================================
-# class Running_Square(Creature):
-#     def __init__(self, grid_ref):
-#         super().__init__(grid_ref)
-#         self.rgbo = [[255, 0, 0], 255]
-#         self.counter = 0
-#         self.controls = {
-#             "up"   : key.W, 
-#             "down" : key.S, 
-#             "left" : key.A, 
-#             "right": key.D
-#         }
 
 
 
