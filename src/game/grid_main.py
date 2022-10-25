@@ -64,56 +64,50 @@ class Grid:
         # --- populating layers ---
         self.layers[0,2] = floor_plan
 
-        # === RGBO stuff ===
-        self.rgbo_ref = grid_rgbo.mk_rgbo_ref()
-        self.rgbo_grid = np.zeros((*self.layers.shape, 4), dtype=np.int64)
-
         # === entities ===
         self.agents = []
         self.light_sources = []
         self.init_entities()
 
+        # === RGBO stuff ===
+        self.rgbo_ref = grid_rgbo.mk_rgbo_ref()
+        self.mk_terrain_rgbo()
+
         # === vertex list stuff ===
-        self.make_vertex_lists()
+        self.make_grid_vlist()
 
     # ==== SETUP =============================================================
-    # ---- VERTEX LISTS ------------------------------------------------------
-    def make_vertex_lists(self):
-        # setup
-        v_num = np.prod(self.dims)*6
-        vlist = open_gl_tools.coords_to_v_list(self.anchor, self.all_xy, self.cell_size)
-        v_st = "v2i/static"
+    def make_grid_vlist(self):
+        # --- Grid vlist ------------------
+        g_v_num = np.prod(self.dims)*6
+        g_vlist = open_gl_tools.coords_to_v_list(self.anchor, self.all_xy, self.cell_size)
+        g_v_st = "v2i/static"
         tri = pyglet.gl.GL_TRIANGLES
+        self.g_vlist = self.batch.add(g_v_num, tri, self.groups[0], g_v_st, "c4f/stream")
+        self.g_vlist.vertices = g_vlist
 
-        # terrain
-        self.v_list = self.batch.add(v_num, tri, self.groups[0], v_st, "c4f/stream")
-        self.v_list.vertices = vlist
+        # --- Senses ----------------------
+    
+    def mk_terrain_rgbo(self):
+        id_list = ((0, 1), (0, 2))
+        rnd_idx = (0, 1)
+        settings = (self.layers, self.rgbo_ref, id_list, rnd_idx)
+        self.terrain_rgbo = grid_rgbo.rgbog_mkr(*settings)
 
-        r_val = 3
-        rgbo_l01 = grid_rgbo.layer_to_rgbo(self.layers, 0, 1, self.rgbo_ref)
-        rgbo_l01[:,:,:3] += np.random.randint(-r_val, r_val, (80, 60, 1))/100
-        rgbo_l02 = grid_rgbo.layer_to_rgbo(self.layers, 0, 2, self.rgbo_ref)
-        rgbo_l02[:,:,:3] += np.random.randint(-r_val, r_val, (80, 60, 1))/100
-        self.terrain_rgbo = grid_rgbo.mix_2_rgbo_grids(rgbo_l01, rgbo_l02)
+    # ==== ADDIGNG STUFF =====================================================
+    def add_agent(self, agent):
+        self.agents.append(agent)
 
+    def add_light_source(self, xy):
+        self.light_sources.append(light.LightSource(xy, self))
+        self.layers[0, 2, xy[0], xy[1]] = 2
     
     # ---- ENTITIES ----------------------------------------------------------
     def init_entities(self):
         # Lights
-        # l1_xy = (25, 25)
-        l1_xy = self.rnd_non_wall_space(self.layers[0,2])
-        self.add_light_source(light.LightSource(l1_xy, self))
-        self.layers[0,2,l1_xy[0], l1_xy[1]] = 2
-
-        # l2_xy = (10, 40)
-        l2_xy = self.rnd_non_wall_space(self.layers[0,2])
-        self.add_light_source(light.LightSource(l2_xy, self))
-        self.layers[0,2,l2_xy[0], l2_xy[1]] = 2
-
-        # l3_xy = (60, 30)
-        l3_xy = self.rnd_non_wall_space(self.layers[0,2])
-        self.add_light_source(light.LightSource(l3_xy, self))
-        self.layers[0,2,l3_xy[0], l3_xy[1]] = 2
+        xy_list = [(25, 25), (10, 40), (60, 30)]
+        for _ in range(3):
+            self.add_light_source(self.rnd_non_wall_space(self.layers[0, 2]))
 
         # Agents
         self.add_agent(creatures.Toe((30, 30), self, self.groups[2]))
@@ -121,22 +115,17 @@ class Grid:
 
     # ==== UPDATES =============================================================
     def update(self, dt):
-
         self.update_agents()
         self.update_lights()
-        
-        self.draw_map(4, 0.3)
-
-        
+        self.draw_map()
     
-    def draw_map(self, br_mult, br_min):
-        rgbo_l20 = grid_rgbo.layer_to_rgbo(self.layers, 2, 0, self.rgbo_ref)
-        rgbo_l11 = grid_rgbo.layer_to_rgbo(self.layers, 1, 1, self.rgbo_ref)
-        rgbog = grid_rgbo.mix_2_rgbo_grids(self.terrain_rgbo, rgbo_l20)
-        rgbog = grid_rgbo.mix_2_rgbo_grids(rgbog, rgbo_l11)
-        rgbog[:,:,-1] = np.clip(br_mult*self.layers[1,1]/255, br_min, 1)
-        self.v_list.colors = open_gl_tools.grid_to_clist(self.all_xy, rgbog)
-
+    def draw_map(self):
+        id_list = ((2, 0), (1, 1))
+        settings = (self.layers, self.rgbo_ref, id_list, (), self.terrain_rgbo)
+        rgbog = grid_rgbo.rgbog_mkr(*settings)
+        rgbog = grid_rgbo.mix_2_rgbo_grids(self.terrain_rgbo, rgbog)
+        rgbog = grid_rgbo.set_brightness(rgbog, self.layers[1,1], 4, 0.3)
+        self.g_vlist.colors = open_gl_tools.grid_to_clist(self.all_xy, rgbog)
     
     def update_agents(self):
         self.layers[2, 0] = 0
@@ -151,48 +140,11 @@ class Grid:
             self.layers[1, 1] += l_source.mk_light_grid(object_grid)
         self.layers[1, 1] = np.clip(self.layers[1, 1], 0, 255)
 
-    def update_vlist_cols(self):
-        # light
-        self.l11_vlist.colors = self.l11_rgbos(self.all_xy, self.layers[1,1], self.rgbo_ref).flatten()
-        # agents
-        self.l20_vlist = 0
-
-    # ==== ADDIGNG STUFF =====================================================
-    def add_agent(self, agent):
-        self.agents.append(agent)
-
-    def add_light_source(self, light_source):
-        self.light_sources.append(light_source)    
-
-    # ==== RGBO GRID =========================================================
-    def layers_to_rgbo(self):
-        pass
-
     # ==== GRID ==============================================================
     def get_all_xy(self):
         x = np.arange(self.dims[0], dtype='i8')
         y = np.arange(self.dims[1], dtype='i8')
         self.all_xy = np.transpose([np.tile(x, len(y)), np.repeat(y, len(x))])
-
-    def import_map_floor(self, filename):
-        dir_str = "./assets/maps/floors/"
-        filepath = dir_str + filename
-        img = Image.open(filepath)
-        img_arr = np.delete(np.asarray(img), np.s_[1:], 2)
-        img_arr = np.squeeze(img_arr) // 255
-        return img_arr.T.astype(np.int64)
-
-    # ==== UTILITY ===========================================================
-
-    def draw_square(self, xy, rgbo, group):
-        sprite = pyglet.shapes.Rectangle(
-            (xy[0] + 1 + self.anchor[0]) * self.cell_size,
-            (xy[1] + 1 + self.anchor[1]) * self.cell_size, 
-            self.cell_size,
-            self.cell_size, 
-            color=rgbo[:3], batch=self.batch, group=group)
-        sprite.opacity = rgbo[-1]
-        return sprite
 
     @staticmethod
     @njit(nogil=NOGIL_TOGGLE, cache=True)
@@ -206,13 +158,28 @@ class Grid:
             wall_check = (wall_grid[x, y] != 0)
         return (x, y)
 
+    def import_map_floor(self, filename):
+        dir_str = "./assets/maps/floors/"
+        filepath = dir_str + filename
+        img = Image.open(filepath)
+        img_arr = np.delete(np.asarray(img), np.s_[1:], 2)
+        img_arr = np.squeeze(img_arr) // 255
+        return img_arr.T.astype(np.int64)
+
 
 
 # === Pyglet drawing ======================================
 
 
-
-
+    # def draw_square(self, xy, rgbo, group):
+    #     sprite = pyglet.shapes.Rectangle(
+    #         (xy[0] + 1 + self.anchor[0]) * self.cell_size,
+    #         (xy[1] + 1 + self.anchor[1]) * self.cell_size,
+    #         self.cell_size,
+    #         self.cell_size,
+    #         color=rgbo[:3], batch=self.batch, group=group)
+    #     sprite.opacity = rgbo[-1]
+    #     return sprite
 
 
     # def make_floor(self, rand_col=None):
