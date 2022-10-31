@@ -28,6 +28,7 @@ def fps_custom_display(window):
     fps_display.label.x=10
     fps_display.label.y=10
     fps_display.label.color=(255, 255, 255, 255)
+    fps_display.update_period = 1
     return fps_display
 
 

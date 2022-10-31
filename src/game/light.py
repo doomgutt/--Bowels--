@@ -12,7 +12,7 @@ class LightSource(physics.Radial):
         super().__init__(*args, **kwargs)
 
         self.rgbo = np.array([200, 200, 100, 0])
-        self.brightness = 0.8
+        self.brightness = 1
 
     def mk_light_grid(self, object_grid):
         return self.get_light_grid(self.xy, self.rays, object_grid, self.brightness)
@@ -22,7 +22,7 @@ class LightSource(physics.Radial):
     @njit(nogil=NOGIL_TOGGLE, cache=True)
     def get_light_grid(xy, rays, object_grid, brightness):
         ctr = xy + 0.5
-        light_grid = np.zeros(object_grid.shape, dtype=np.float64)
+        light_grid = np.zeros(object_grid.shape, dtype='i8')
         for ii in prange(len(rays)):
             for jj in prange(len(rays[ii][0])):
                 x = np.int64(rays[ii][0][jj] + ctr[0])
@@ -32,8 +32,7 @@ class LightSource(physics.Radial):
                 else:
                     light_grid[x, y] += brightness*20
                     break
-        # light_grid[int(ctr[0]), int(ctr[1])] = 10
-        return light_grid.astype(np.int64)
+        return light_grid
 
     # @staticmethod
     # @njit(nogil=NOGIL_TOGGLE, parallel=PARALLEL_TOGGLE, cache=True)

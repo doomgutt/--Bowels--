@@ -2,7 +2,7 @@ import numpy as np
 import pyglet
 from numba import njit, prange
 from PIL import Image
-from src.game import graphics
+from src.game import senses
 from src.game import light
 from src.game import creatures
 from src.game import open_gl_tools
@@ -42,7 +42,7 @@ class Grid:
         self.batch = batch
         self.groups = groups
         self.clock = clock
-        clock.schedule_interval(self.update, 1/120.0)
+        clock.schedule_interval(self.update, 1/30.0)
         
         # === making map ===
         self.cell_size = cell_size
@@ -59,7 +59,7 @@ class Grid:
 
         layer_dims = (3, 4)
         self.layers = np.zeros((*layer_dims, *self.dims), dtype='i8')
-        self.get_all_xy()
+        self.all_xy = grid_rgbo.get_xy_list(self.dims[0], self.dims[1])
 
         # --- populating layers ---
         self.layers[0,2] = floor_plan
@@ -67,6 +67,7 @@ class Grid:
         # === entities ===
         self.agents = []
         self.light_sources = []
+        self.sight_grids = []
         self.init_entities()
 
         # === RGBO stuff ===
@@ -74,20 +75,18 @@ class Grid:
         self.mk_terrain_rgbo()
 
         # === vertex list stuff ===
-        self.make_grid_vlist()
+        self.g_vlist = self.mk_vlist(self.anchor, self.all_xy, self.groups[0], self.cell_size)
 
     # ==== SETUP =============================================================
-    def make_grid_vlist(self):
-        # --- Grid vlist ------------------
-        g_v_num = np.prod(self.dims)*6
-        g_vlist = open_gl_tools.coords_to_v_list(self.anchor, self.all_xy, self.cell_size)
-        g_v_st = "v2i/static"
-        tri = pyglet.gl.GL_TRIANGLES
-        self.g_vlist = self.batch.add(g_v_num, tri, self.groups[0], g_v_st, "c4f/stream")
-        self.g_vlist.vertices = g_vlist
+    def mk_vlist(self, anchor, xy_list, group, cell_size,
+                 v_mode="v2i/static", c_mode="c4f/stream"):
+        vlist = self.batch.add(
+            len(xy_list)*6, pyglet.gl.GL_TRIANGLES, group, v_mode, c_mode)
+        vlist_vertices = open_gl_tools.coords_to_v_list(
+            anchor, xy_list, cell_size)
+        vlist.vertices = vlist_vertices
+        return vlist
 
-        # --- Senses ----------------------
-    
     def mk_terrain_rgbo(self):
         id_list = ((0, 1), (0, 2))
         rnd_idx = (0, 1)
@@ -102,6 +101,9 @@ class Grid:
         self.light_sources.append(light.LightSource(xy, self))
         self.layers[0, 2, xy[0], xy[1]] = 2
     
+    def add_sight_grid(self):
+        self.sight_grids.append(senses.Sight_Grid(self))
+    
     # ---- ENTITIES ----------------------------------------------------------
     def init_entities(self):
         # Lights
@@ -115,22 +117,25 @@ class Grid:
 
     # ==== UPDATES =============================================================
     def update(self, dt):
-        self.update_agents()
         self.update_lights()
+        self.update_agents(dt)
         self.draw_map()
     
     def draw_map(self):
+        # customise to parts of the grid
         id_list = ((2, 0), (1, 1))
         settings = (self.layers, self.rgbo_ref, id_list, (), self.terrain_rgbo)
         rgbog = grid_rgbo.rgbog_mkr(*settings)
-        rgbog = grid_rgbo.mix_2_rgbo_grids(self.terrain_rgbo, rgbog)
-        rgbog = grid_rgbo.set_brightness(rgbog, self.layers[1,1], 4, 0.3)
+        rgbog = grid_rgbo.set_brightness(rgbog, self.layers[1,1], 0.009, 0.2)
+        self.light_rgbog = rgbog
         self.g_vlist.colors = open_gl_tools.grid_to_clist(self.all_xy, rgbog)
     
-    def update_agents(self):
+    def update_agents(self, dt):
         self.layers[2, 0] = 0
         for agent in self.agents:
             self.layers[2, 0, agent.xy[0], agent.xy[1]] = agent.id
+            agent.glayers = self.layers
+            agent.update(dt)
 
     # njit this one?
     def update_lights(self):
@@ -141,10 +146,6 @@ class Grid:
         self.layers[1, 1] = np.clip(self.layers[1, 1], 0, 255)
 
     # ==== GRID ==============================================================
-    def get_all_xy(self):
-        x = np.arange(self.dims[0], dtype='i8')
-        y = np.arange(self.dims[1], dtype='i8')
-        self.all_xy = np.transpose([np.tile(x, len(y)), np.repeat(y, len(x))])
 
     @staticmethod
     @njit(nogil=NOGIL_TOGGLE, cache=True)

@@ -22,17 +22,17 @@ def mk_rgbo_ref():
 
     # --- terrain ---
     # floor
-    rgbo_ref[0, 1, 0] = [30,  30,  30, 255]
+    rgbo_ref[0, 1, 0] = [60,  20,  10, 255]
 
     # walls
     rgbo_ref[0, 2, 0] = [0,   0,   0,  0]
-    rgbo_ref[0, 2, 1] = [90,  90,  90, 255]
-    rgbo_ref[0, 2, 2] = [120, 120, 80, 255]
+    rgbo_ref[0, 2, 1] = [70,  70,  90, 255]
+    rgbo_ref[0, 2, 2] = [120, 120, 60, 255]
 
     # --- physics ---
     # light
     for n in range(256):
-        rgbo_ref[1, 1, n] = [200, 200, 100, n/10]
+        rgbo_ref[1, 1, n] = [200, 200, 100, n/3]
 
     # --- agents ---
     rgbo_ref[2, 0, 0] = [0,   0,   0,  0  ]
@@ -97,7 +97,7 @@ def rgbog_mkr(layers, rgbo_ref, id_list, id_rnd=(), init_rgbog=None):
         mixed = init_rgbog
         no_init_check = False
     for i, mn in enumerate(id_list):
-        rgbog = layer_to_rgbo(layers, mn[0], mn[1], rgbo_ref)
+        rgbog = layer_to_rgbo(layers, *mn, rgbo_ref)
         if i in id_rnd:
             rgbog = add_noise(rgbog, r_val=3, r_type='bw')
         if no_init_check:
@@ -112,12 +112,15 @@ def rgbog_mkr(layers, rgbo_ref, id_list, id_rnd=(), init_rgbog=None):
 
 @njit(nogil=NOGIL_TOGGLE, parallel=PARALLEL_TOGGLE, cache=True)
 def set_brightness(rgbog, light_grid, br_mult, br_min):
-    l_grid = np.clip(br_mult*light_grid/255, br_min, 1)
+    l_grid = np.clip(br_mult*light_grid, br_min, 1)
     rgbog[:,:,-1] = l_grid
     return rgbog
 
 # === EXTRAS =================================================================
-
+def get_xy_list(max_x, max_y):
+    x = np.arange(max_x, dtype='i8')
+    y = np.arange(max_y, dtype='i8')
+    return np.transpose([np.tile(x, len(y)), np.repeat(y, len(x))])
 
 
     
