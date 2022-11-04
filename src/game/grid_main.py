@@ -97,8 +97,8 @@ class Grid:
     def add_agent(self, agent):
         self.agents.append(agent)
 
-    def add_light_source(self, xy):
-        self.light_sources.append(light.LightSource(xy, self))
+    def add_light_source(self, xy, density=360):
+        self.light_sources.append(light.LightSource(xy, self, density))
         self.layers[0, 2, xy[0], xy[1]] = 2
     
     def add_sight_grid(self):
@@ -108,8 +108,9 @@ class Grid:
     def init_entities(self):
         # Lights
         xy_list = [(25, 25), (10, 40), (60, 30)]
-        for _ in range(3):
-            self.add_light_source(self.rnd_non_wall_space(self.layers[0, 2]))
+        for _ in range(1):
+            # self.add_light_source(self.rnd_non_wall_space(self.layers[0, 2]))
+            self.add_light_source((25, 25))
 
         # Agents
         self.add_agent(creatures.Toe((30, 30), self, self.groups[2]))
@@ -126,7 +127,7 @@ class Grid:
         id_list = ((2, 0), (1, 1))
         settings = (self.layers, self.rgbo_ref, id_list, (), self.terrain_rgbo)
         rgbog = grid_rgbo.rgbog_mkr(*settings)
-        rgbog = grid_rgbo.set_brightness(rgbog, self.layers[1,1], 0.009, 0.2)
+        rgbog = grid_rgbo.set_brightness(rgbog, self.layers[1,1], 0.009, 0.1)
         self.light_rgbog = rgbog
         self.g_vlist.colors = open_gl_tools.grid_to_clist(self.all_xy, rgbog)
     
@@ -137,12 +138,13 @@ class Grid:
             agent.glayers = self.layers
             agent.update(dt)
 
-    # njit this one?
     def update_lights(self):
-        object_grid = self.layers[0,2] + self.layers[2,0]
+        object_grid = self.layers[0, 2] + self.layers[2, 0]
         self.layers[1, 1] = 0
         for l_source in self.light_sources:
             self.layers[1, 1] += l_source.mk_light_grid(object_grid)
+            # workign w rays
+            self.rayz = l_source.RAYZ(object_grid, self.anchor, self.batch, self.groups[2])
         self.layers[1, 1] = np.clip(self.layers[1, 1], 0, 255)
 
     # ==== GRID ==============================================================

@@ -16,11 +16,10 @@ class Creature:
         self.xy = np.array(xy)
         self.m_speed = m_speed
         self.u_speed = u_speed
-        self.mu, self.md, self.ml, self.mr = 0, 0, 0, 0
 
         # clock
-        self.clock = grid.clock
         self.dt = 0
+        # self.clock = grid.clock
         # self.clock.schedule_interval(self.update, 1/self.m_speed)
         # self.clock.schedule_interval(self.move,   1/self.m_speed)
 

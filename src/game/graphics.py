@@ -23,15 +23,28 @@ def rand_col(rgbo, type, amount=10):
 
 def fps_custom_display(window):
     fps_display = pyglet.window.FPSDisplay(window=window)
-    fps_display.label.font_name='Verdana'
-    fps_display.label.font_size=8
-    fps_display.label.x=10
-    fps_display.label.y=10
-    fps_display.label.color=(255, 255, 255, 255)
+    fps_display.label.font_name = 'Verdana'
+    fps_display.label.font_size = 8
+    fps_display.label.x = 10
+    fps_display.label.y = 10
+    fps_display.label.color = (255, 255, 255, 255)
     fps_display.update_period = 1
     return fps_display
 
 
+@njit(nogil=True, cache=True)
+def discrete_line(xy1, xy2):
+    dxdy = xy2 - xy1
+    N = np.max(np.abs(dxdy))
+    xy_inc = dxdy/N
+
+    xy_list = np.zeros((N, 2), dtype='f8')
+    xy = xy1.astype('f8')
+    xy_list[0] = np.floor(xy)
+    for ii in range(1, N):
+        xy += xy_inc
+        xy_list[ii] = np.floor(xy)
+    return xy_list
 
 
 # class RGBOmap:

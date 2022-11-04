@@ -6,6 +6,43 @@ PARALLEL_TOGGLE = False
 NOGIL_TOGGLE = True
 # ============================
 
+
+@njit(nogil=NOGIL_TOGGLE, cache=True)
+def bresenham_lines(start, end, max_iter):
+    """
+    - Normalizing Slope
+        - dxdy: calculate slopes: ends-starts
+        - scale: get furthest x/y distance for every dxdy
+            - set 0 slope entries to 1's (when two points are the same)
+        - nslope: normalized slope
+    - Calculate lines
+        - npts, dims: number of points and point dimensions
+        - max_iter: get furthest distance for any two points
+    """
+
+    # Normalizing slope
+    dxdy = (end - start)
+    abs_dxdy = np.abs(dxdy)
+    scale = np.zeros((len(abs_dxdy), 1), dtype='i8')
+    for ii, xy in enumerate(abs_dxdy):
+        sc = max(xy)
+        scale[ii] = sc if sc != 0 else 1
+    nslope = dxdy.astype('f8') / scale
+
+    # Steps to iterate on
+    npts, dim = start.shape
+    if max_iter == -1: max_iter = np.max(scale)
+    stepseq = np.arange(1, max_iter + 1)
+    stepmat = stepseq.repeat(dim).reshape((-1, dim))
+
+    # Calculate lines
+    bline = np.zeros((len(start), *stepmat.shape), dtype='f8')
+    for ii, start_xy in enumerate(start):
+        bline[ii] = start_xy + nslope[ii] * stepmat
+
+    return np.rint(bline)
+
+
 class Radial:
     def __init__(self, xy, grid, density=360, ray_steps=1000):
         self.grid_ref = grid

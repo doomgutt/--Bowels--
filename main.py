@@ -87,6 +87,7 @@ for agent in grid.agents:
 def on_draw():
     window.clear()
     batch1.draw()
+    a = grid.rayz
     fps_display.draw()
 
 # ==== RUN ===================================================================

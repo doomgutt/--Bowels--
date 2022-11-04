@@ -26,7 +26,7 @@ class Touch():
 class SightGrid:
     def __init__(self, grid):
         self.GRID = grid
-        self.xy_list = grid_rgbo.get_xy_list(3, 3)
+        self.xy_list = grid_rgbo.get_xy_list(5, 5)
         
         anchor = (0, 0)
         size_mult = 2
@@ -36,12 +36,14 @@ class SightGrid:
             self.GRID.groups[1],
             self.GRID.cell_size*size_mult
         )
+        self.vlist.colours = np.ones(len(self.xy_list)*6*4)
         
         # self.set_sight_density(10)
         # self.RADIAL = physics.Radial(xy, grid)
         # self.rays = self.RADIAL.rays
 
     def update(self, xy, grid_layers):
+        # idx = np.array([6,7,8, 11,12,13, 16,17,18])
         xy_l = self.xy_list + xy -1
         xmin, xmax = xy_l[0, 0], xy_l[-1,0]+1
         ymin, ymax = xy_l[0, 1], xy_l[-1,1]+1

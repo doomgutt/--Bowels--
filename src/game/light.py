@@ -1,4 +1,5 @@
 import numpy as np
+import pyglet
 from numba import njit, prange
 from src.game import physics
 
@@ -6,6 +7,7 @@ from src.game import physics
 PARALLEL_TOGGLE = False
 NOGIL_TOGGLE = True
 # ============================
+
 
 class LightSource(physics.Radial):
     def __init__(self, *args, **kwargs):
@@ -17,6 +19,13 @@ class LightSource(physics.Radial):
     def mk_light_grid(self, object_grid):
         return self.get_light_grid(self.xy, self.rays, object_grid, self.brightness)
     
+    def RAYZ(self, object_grid, anchor, batch, group):
+        beams = []
+        ray_seqs = ray_collision_seqs(self.xy, self.radial, object_grid)
+        beams = draw_ray_seq(anchor, ray_seqs, self.grid_ref.cell_size, batch, group)
+        return beams
+        # return self.draw_rays(anchor, self.xy, ray_seqs, batch, group)
+
     # --- Update Light -------------------------------------------------
     @staticmethod
     @njit(nogil=NOGIL_TOGGLE, cache=True)
@@ -34,6 +43,62 @@ class LightSource(physics.Radial):
                     break
         return light_grid
 
+@njit(nogil=NOGIL_TOGGLE, cache=True)
+def ray_collision_seqs(start_xy, radial, object_grid,
+                       step=0.3, max_refs=2, brightness=1, br_drop=0.7):
+    ray_seqs = np.zeros((len(radial), max_refs+1, 2), dtype="f8")
+    xy_steps = np.vstack((np.sin(radial), np.cos(radial))).T*step
+    
+    for ii in prange(len(xy_steps)):
+        br = brightness
+        xy = start_xy + 0.5
+        ray_seqs[ii, 0] = xy
+        for rr in range(1, max_refs+1):
+            while True:
+                xy += xy_steps[ii]
+                tx, ty = xy.astype('i8')
+                if object_grid[tx, ty] not in (0, 2):
+                    ray_seqs[ii, rr] = xy
+                    reflection_tool(xy, xy_steps[ii])
+                    br *= br_drop
+                    break
+    return ray_seqs
+
+@njit(nogil=NOGIL_TOGGLE, cache=True)
+def reflection_tool(end_xy, xy_step):
+    block_ctr = np.floor(end_xy) + 0.5
+    xy_dist = end_xy - block_ctr
+    vals = np.abs(xy_dist)
+    if vals[0] >= vals[1]:
+        xy_step *= np.array([-1, 1])  # x reflection
+        if xy_dist[0] < 0:
+            end_xy = np.array([np.floor(end_xy[0]), end_xy[1]])
+        else:
+            end_xy = np.array([np.ceil(end_xy[0]), end_xy[1]])
+    else:
+        xy_step *= np.array([1, -1])  # y reflection
+        if xy_dist[1] < 0:
+            end_xy = np.array([end_xy[0], np.floor(end_xy[1])])
+        else:
+            end_xy = np.array([end_xy[0], np.ceil(end_xy[1])])
+
+def draw_ray_seq(anchor, ray_seqs, cell_size, batch, group):
+    beams = []
+    for ray_coords in ray_seqs:
+        ray_coords += anchor
+        opacity = 100
+        for ii in range(len(ray_coords)-1):
+            start_xy = ray_coords[ii]
+            end_xy = ray_coords[ii+1]
+            beam = pyglet.shapes.Line(
+                *(start_xy+1)*cell_size,
+                *(end_xy+1)*cell_size,
+                width=2, batch=batch, group=group)
+            opacity = opacity//2
+            beam.opacity = opacity
+            beams.append(beam)
+    return beams
+
     # @staticmethod
     # @njit(nogil=NOGIL_TOGGLE, parallel=PARALLEL_TOGGLE, cache=True)
     # def get_light_cols(all_xy, light_grid, rgbo):
@@ -49,7 +114,7 @@ class LightSource(physics.Radial):
     # === Ray Stuff =================================================
 
     # @staticmethod
-    # @njit(nogil=NOGIL_TOGGLE, cache=True)
+    # @njit(nogil=NOGIL_TOGGLE, parallel=PARALLEL_TOGGLE, cache=True)
     # def get_light_rays(xy, rays, grid):
     #     ray_ends = np.zeros((len(rays), 2))
     #     for ii, ray in enumerate(rays):
@@ -64,7 +129,7 @@ class LightSource(physics.Radial):
 
     # # --- experimental ------------------------------------------------
     # @staticmethod
-    # @njit(nogil=NOGIL_TOGGLE, cache=True)
+    # @njit(nogil=NOGIL_TOGGLE, parallel=PARALLEL_TOGGLE, cache=True)
     # def get_light_rays_w_reflection(xy, rays, grid):
     #     ray_ends = np.zeros((len(rays), 2))
     #     for ii, ray in enumerate(rays):
