@@ -8,6 +8,16 @@ NOGIL_TOGGLE = True
 # https://github.com/fjug/BobSeg/blob/master/bresenham.py
 
 
+def bresenham_radial(dims, density=360, mode="numpy"):
+    rads = np.linspace(0, 2*np.pi, density, endpoint=False)
+    start = np.repeat(np.array([[0, 0]]), len(rads), axis=0)
+    ends = np.array((np.sin(rads), np.cos(rads))).T*max(dims)
+    if mode == "numpy":
+        lines = bresenham_numpy(start, ends)
+    elif mode == "numba":
+        lines = bresenham_numba(start, ends)
+    return lines
+
 @njit(nogil=NOGIL_TOGGLE, cache=True)
 def bresenham_numba(start, end, max_iter=-1):
     """

@@ -1,7 +1,7 @@
 import numpy as np
 from src.game import physics
 from src.game import grid_rgbo
-from src.game import open_gl_tools
+from src.game import open_gl
 # import pyglet
 # import time
 
@@ -53,7 +53,7 @@ class SightGrid:
         settings = (glayers, self.GRID.rgbo_ref, id_list, (), terrain)
         rgbog = grid_rgbo.rgbog_mkr(*settings)
         rgbog = grid_rgbo.set_brightness(rgbog, glayers[1, 1], 0.009, 0.2)
-        self.vlist.colors = open_gl_tools.grid_to_clist(self.xy_list, rgbog)
+        self.vlist.colors = open_gl.grid_to_clist(self.xy_list, rgbog)
 
     # @staticmethod
     # def sight_grid(xy, light_grid, collisions_coords=()):

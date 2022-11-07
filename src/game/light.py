@@ -18,7 +18,7 @@ class LightSource(physics.Radial):
 
     def mk_light_grid(self, object_grid):
         return self.get_light_grid(self.xy, self.rays, object_grid, self.brightness)
-    
+
     def RAYZ(self, object_grid, anchor, batch, group):
         beams = []
         ray_seqs = ray_collision_seqs(self.xy, self.radial, object_grid)
@@ -64,6 +64,7 @@ def ray_collision_seqs(start_xy, radial, object_grid,
                     break
     return ray_seqs
 
+
 @njit(nogil=NOGIL_TOGGLE, cache=True)
 def reflection_tool(end_xy, xy_step):
     block_ctr = np.floor(end_xy) + 0.5
@@ -81,6 +82,7 @@ def reflection_tool(end_xy, xy_step):
             end_xy = np.array([end_xy[0], np.floor(end_xy[1])])
         else:
             end_xy = np.array([end_xy[0], np.ceil(end_xy[1])])
+
 
 def draw_ray_seq(anchor, ray_seqs, cell_size, batch, group):
     beams = []

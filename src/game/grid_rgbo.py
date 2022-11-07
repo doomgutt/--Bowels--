@@ -108,8 +108,6 @@ def rgbog_mkr(layers, rgbo_ref, id_list, id_rnd=(), init_rgbog=None):
     return mixed
 
 # === Set Light Brightness ===================================================
-
-
 @njit(nogil=NOGIL_TOGGLE, parallel=PARALLEL_TOGGLE, cache=True)
 def set_brightness(rgbog, light_grid, br_mult, br_min):
     l_grid = np.clip(br_mult*light_grid, br_min, 1)
@@ -123,6 +121,14 @@ def get_xy_list(max_x, max_y):
     return np.transpose([np.tile(x, len(y)), np.repeat(y, len(x))])
 
 
+@njit
+def rand_col(rgbo, type, amount=10):
+    if type == 'col':
+        rnd = np.random.randint(-amount, amount, 3)
+    elif type == 'bw':
+        rnd = np.repeat(np.random.randint(-amount, amount), 3)
+    rgbo[:3] += rnd
+    return rgbo
     
 
 
