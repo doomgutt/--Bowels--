@@ -13,93 +13,124 @@ class LightSource(physics.Radial):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.rgbo = np.array([200, 200, 100, 0])
-        self.brightness = 1
+    def add_light(self, object_grid, light_grid):
+        self._add_light(self.xy, self.radial, object_grid, light_grid)
 
-    def mk_light_grid(self, object_grid):
-        return self.get_light_grid(self.xy, self.rays, object_grid, self.brightness)
-
-    def RAYZ(self, object_grid, anchor, batch, group):
-        beams = []
-        ray_seqs = ray_collision_seqs(self.xy, self.radial, object_grid)
-        beams = draw_ray_seq(anchor, ray_seqs, self.grid_ref.cell_size, batch, group)
-        return beams
-        # return self.draw_rays(anchor, self.xy, ray_seqs, batch, group)
-
-    # --- Update Light -------------------------------------------------
     @staticmethod
-    @njit(nogil=NOGIL_TOGGLE, cache=True)
-    def get_light_grid(xy, rays, object_grid, brightness):
-        ctr = xy + 0.5
-        light_grid = np.zeros(object_grid.shape, dtype='i8')
-        for ii in prange(len(rays)):
-            for jj in prange(len(rays[ii][0])):
-                x = np.int64(rays[ii][0][jj] + ctr[0])
-                y = np.int64(rays[ii][1][jj] + ctr[1])
-                if object_grid[x, y] in (0, 2):
+    @njit
+    def _add_light(xy, radial, object_grid, light_grid, brightness=0.1):
+        cut_radial = radial.copy() + xy
+        collisions = np.zeros((len(radial), 2, 2))
+        for i, ray in enumerate(cut_radial):
+            collisions[i, 0] = ray[0]
+            for j, xy in enumerate(ray):
+                x, y = xy
+                if object_grid[x, y] != 0:
                     light_grid[x, y] += brightness
-                else:
-                    light_grid[x, y] += brightness*20
+                    collisions[i, 1] = xy
                     break
-        return light_grid
+                light_grid[x, y] += brightness
+        return collisions
 
-@njit(nogil=NOGIL_TOGGLE, cache=True)
-def ray_collision_seqs(start_xy, radial, object_grid,
-                       step=0.3, max_refs=2, brightness=1, br_drop=0.7):
-    ray_seqs = np.zeros((len(radial), max_refs+1, 2), dtype="f8")
-    xy_steps = np.vstack((np.sin(radial), np.cos(radial))).T*step
+
+
+# ##################################################################
+# ##################################################################
+
+
+# class LightSource(physics.Radial):
+#     def __init__(self, *args, **kwargs):
+#         super().__init__(*args, **kwargs)
+
+#         self.rgbo = np.array([200, 200, 100, 0])
+#         self.brightness = 1
+
+#     def mk_light_grid(self, object_grid):
+#         return self.get_light_grid(self.xy, self.rays, object_grid, self.brightness)
+
+#     def RAYZ(self, object_grid, anchor, batch, group):
+#         beams = []
+#         ray_seqs = ray_collision_seqs(self.xy, self.radial, object_grid)
+#         beams = draw_ray_seq(anchor, ray_seqs, self.grid_ref.cell_size, batch, group)
+#         return beams
+#         # return self.draw_rays(anchor, self.xy, ray_seqs, batch, group)
+
+#     # --- Update Light -------------------------------------------------
+#     @staticmethod
+#     @njit(nogil=NOGIL_TOGGLE, cache=True)
+#     def get_light_grid(xy, rays, object_grid, brightness):
+#         ctr = xy + 0.5
+#         light_grid = np.zeros(object_grid.shape, dtype='i2')
+#         for ii in prange(len(rays)):
+#             for jj in prange(len(rays[ii][0])):
+#                 x = np.int64(rays[ii][0][jj] + ctr[0])
+#                 y = np.int64(rays[ii][1][jj] + ctr[1])
+#                 if object_grid[x, y] in (0, 2):
+#                     light_grid[x, y] += brightness
+#                 else:
+#                     light_grid[x, y] += brightness*20
+#                     break
+#         return light_grid
+
+# @njit(nogil=NOGIL_TOGGLE, cache=True)
+# def ray_collision_seqs(start_xy, radial, object_grid,
+#                        step=0.3, max_refs=2, brightness=1, br_drop=0.7):
+#     ray_seqs = np.zeros((len(radial), max_refs+1, 2), dtype="f8")
+#     xy_steps = np.vstack((np.sin(radial), np.cos(radial))).T*step
     
-    for ii in prange(len(xy_steps)):
-        br = brightness
-        xy = start_xy + 0.5
-        ray_seqs[ii, 0] = xy
-        for rr in range(1, max_refs+1):
-            while True:
-                xy += xy_steps[ii]
-                tx, ty = xy.astype('i8')
-                if object_grid[tx, ty] not in (0, 2):
-                    ray_seqs[ii, rr] = xy
-                    reflection_tool(xy, xy_steps[ii])
-                    br *= br_drop
-                    break
-    return ray_seqs
+#     for ii in prange(len(xy_steps)):
+#         br = brightness
+#         xy = start_xy + 0.5
+#         ray_seqs[ii, 0] = xy
+#         for rr in range(1, max_refs+1):
+#             while True:
+#                 xy += xy_steps[ii]
+#                 tx, ty = xy.astype('i2')
+#                 if object_grid[tx, ty] not in (0, 2):
+#                     ray_seqs[ii, rr] = xy
+#                     reflection_tool(xy, xy_steps[ii])
+#                     br *= br_drop
+#                     break
+#     return ray_seqs
 
 
-@njit(nogil=NOGIL_TOGGLE, cache=True)
-def reflection_tool(end_xy, xy_step):
-    block_ctr = np.floor(end_xy) + 0.5
-    xy_dist = end_xy - block_ctr
-    vals = np.abs(xy_dist)
-    if vals[0] >= vals[1]:
-        xy_step *= np.array([-1, 1])  # x reflection
-        if xy_dist[0] < 0:
-            end_xy = np.array([np.floor(end_xy[0]), end_xy[1]])
-        else:
-            end_xy = np.array([np.ceil(end_xy[0]), end_xy[1]])
-    else:
-        xy_step *= np.array([1, -1])  # y reflection
-        if xy_dist[1] < 0:
-            end_xy = np.array([end_xy[0], np.floor(end_xy[1])])
-        else:
-            end_xy = np.array([end_xy[0], np.ceil(end_xy[1])])
+# @njit(nogil=NOGIL_TOGGLE, cache=True)
+# def reflection_tool(end_xy, xy_step):
+#     block_ctr = np.floor(end_xy) + 0.5
+#     xy_dist = end_xy - block_ctr
+#     vals = np.abs(xy_dist)
+#     if vals[0] >= vals[1]:
+#         xy_step *= np.array([-1, 1])  # x reflection
+#         if xy_dist[0] < 0:
+#             end_xy = np.array([np.floor(end_xy[0]), end_xy[1]])
+#         else:
+#             end_xy = np.array([np.ceil(end_xy[0]), end_xy[1]])
+#     else:
+#         xy_step *= np.array([1, -1])  # y reflection
+#         if xy_dist[1] < 0:
+#             end_xy = np.array([end_xy[0], np.floor(end_xy[1])])
+#         else:
+#             end_xy = np.array([end_xy[0], np.ceil(end_xy[1])])
 
 
-def draw_ray_seq(anchor, ray_seqs, cell_size, batch, group):
-    beams = []
-    for ray_coords in ray_seqs:
-        ray_coords += anchor
-        opacity = 100
-        for ii in range(len(ray_coords)-1):
-            start_xy = ray_coords[ii]
-            end_xy = ray_coords[ii+1]
-            beam = pyglet.shapes.Line(
-                *(start_xy+1)*cell_size,
-                *(end_xy+1)*cell_size,
-                width=2, batch=batch, group=group)
-            opacity = opacity//2
-            beam.opacity = opacity
-            beams.append(beam)
-    return beams
+# def draw_ray_seq(anchor, ray_seqs, cell_size, batch, group):
+#     beams = []
+#     for ray_coords in ray_seqs:
+#         ray_coords += anchor
+#         opacity = 100
+#         for ii in range(len(ray_coords)-1):
+#             start_xy = ray_coords[ii]
+#             end_xy = ray_coords[ii+1]
+#             beam = pyglet.shapes.Line(
+#                 *(start_xy+1)*cell_size,
+#                 *(end_xy+1)*cell_size,
+#                 width=2, batch=batch, group=group)
+#             opacity = opacity//2
+#             beam.opacity = opacity
+#             beams.append(beam)
+#     return beams
+# #################################################################################
+
 
     # @staticmethod
     # @njit(nogil=NOGIL_TOGGLE, parallel=PARALLEL_TOGGLE, cache=True)

@@ -30,7 +30,9 @@ def grid_to_clist(xy_list, rgbo_grid):
 
 def mk_vlist(anchor, cell_size, xy_list, batch, group, 
                 v_mode="v2i/static", c_mode="c4f/stream"):
-    
+    anchor = np.array(anchor, dtype='i2')
+    xy_list = np.array(xy_list, dtype='i2')
+
     vlist = batch.add(
         len(xy_list)*6,
         pyglet.gl.GL_TRIANGLES,

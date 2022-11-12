@@ -16,9 +16,9 @@ pyglet.gl.glBlendFunc(pyglet.gl.GL_SRC_ALPHA, pyglet.gl.GL_ONE_MINUS_SRC_ALPHA)
 
 # --- graphics --------
 batch1 = pyglet.graphics.Batch()
-group_0 = pyglet.graphics.OrderedGroup(0)
-group_1 = pyglet.graphics.OrderedGroup(1)
-group_2 = pyglet.graphics.OrderedGroup(2)
+group_0 = pyglet.graphics.OrderedGroup(0)  # terrain
+group_1 = pyglet.graphics.OrderedGroup(1)  # agents
+group_2 = pyglet.graphics.OrderedGroup(2)  # light /sound/smell?
 group_3 = pyglet.graphics.OrderedGroup(3)
 groups = [group_0, group_1, group_2, group_3]
 
@@ -38,7 +38,6 @@ for agent in grid.agents:
 def on_draw():
     window.clear()
     batch1.draw()
-    a = grid.rayz
     fps_display.draw()
 
 # ==== RUN ===================================================================

@@ -2,6 +2,7 @@ import numpy as np
 from src.game import physics
 from src.game import grid_rgbo
 from src.game import open_gl
+from src.game import discrete_geometry as dg
 # import pyglet
 # import time
 
@@ -10,16 +11,55 @@ PARALLEL_TOGGLE = False
 NOGIL_TOGGLE = True
 # ============================
 
-class Eyes():
+class Eyes:
+    def __init__(self, batch, group):
+        anchor = (4, 4)
+        cell_size = 10
+        self.mk_floor_vlist(anchor, cell_size, batch, group)
+        self.mk_far_vlist(anchor, cell_size, batch, group)
+    
+    # --- Update colours -----------------------------------------------------
+    def see_floor(self, xy, grid):
+        rgbo_list = self.get_floor_rgbo(xy, grid)
+
+    def update_floor_v_list():
+        pass
+
+    def see_far(xy):
+        pass
+
+    def get_floor_rgbo(self, xy, grid):
+        # make index
+        id_indices = [(0, 0), (0, 1), (2, 0)]
+        
+        # make rgbo lists
+        rgbo_lists = []
+        for id_idx in id_indices:
+            rgbo_lists.append(grid_rgbo.idx_to_rgbo(
+                self.floor_idx+xy, id_idx, grid.layers, grid.rgbo_ref))
+
+        # mix rgbo lists
+        rgbo_lists = np.array(rgbo_lists)
+        mixed_rgbo = grid_rgbo.mix_rgbo_lists(rgbo_lists)
+    
+    # --- Set up Vertex Lists ------------------------------------------------
+    def mk_floor_vlist(self, anchor, cell_size, batch, group):
+        self.floor_idx = dg.bresenham_circle(1)
+        self.floor_vlist = open_gl.mk_vlist(
+            anchor, cell_size, self.floor_idx, batch, group)
+
+    def mk_far_vlist(self, anchor, cell_size, batch, group):
+        self.far_idx = dg.bresenham_circle(2)
+        self.far_vlist = open_gl.mk_vlist(
+            anchor, cell_size, self.far_idx, batch, group)
+
+class Ears:
     pass
 
-class Ears():
+class Nose:
     pass
 
-class Nose():
-    pass
-
-class Touch():
+class Skin:
     pass
 
 

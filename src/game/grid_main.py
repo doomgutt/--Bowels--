@@ -7,23 +7,48 @@ from src.game import light
 from src.game import creatures
 from src.game import open_gl
 from src.game import grid_rgbo
+from src.game import discrete_geometry as dg
 
 """
 Grid layers:
 0, 0       = technical stuff
 0, 1       = floor
-0, 2       = walls
+1       = walls
 1, [1 -10] = light
 1, [11-20] = smell
 1, [21-30] = sound
 2, 0       = agents
 """
 
+""" Grid layers:
+0 - floor
+1 - walls
+2 - agents
+"""
+
+
 # === NUMBA SETUP ============
 PARALLEL_TOGGLE = False
 NOGIL_TOGGLE = True
 # ============================
 
+""" how it works
+INIT
+    init pyglet
+        clock
+        batch
+        groups
+    init grid
+        load map and make grid
+        init grbo map
+        init vertex list
+        init layers
+            init terrain
+            init agents
+            init senses
+UPDATE
+    
+"""
 
 # === GRID STUFF =============
 class Grid:
@@ -56,7 +81,8 @@ class Grid:
         self.batch = batch
         self.groups = groups
         self.clock = clock
-        clock.schedule_interval(self.update, 1/30.0)
+        fps = 60
+        clock.schedule_interval(self.update, 1/60)
 
         # Init grid
         self.cell_size = cell_size
@@ -74,24 +100,33 @@ class Grid:
         self.init_light()
 
         # Init RGBO maps
-        self.mk_terrain_rgbo()
+        self.make_terrain_rgbo()
+        # self.mk_terrain_rgbo()
+
+        # testing
+        self.testingg()
+    
+    def testingg(self):
+        pass
 
     # ==== Initialising Objects ==============================================
     def init_terrain(self):
-        self.layers[0, 2] = self.imported_image
+        self.layers[1] = self.imported_image
 
     def init_agents(self):
         self.agents = []
-        self.add_agent(creatures.Toe((30, 30), self, self.groups[2]))
+        self.add_agent(creatures.Toe((30, 30), self))
 
     def init_light(self):
+        self.light_rgbo = np.array([200, 200, 100, 0], dtype='i2')/255
+        self.light_grid = np.zeros(self.layers[0].shape, dtype='f8')
         self.light_sources = []
         self.sight_grids = []
 
         # xy_list = [(25, 25), (10, 40), (60, 30)]
-        for _ in range(1):
-            # self.add_light_source(self.rnd_non_wall_space(self.layers[0, 2]))
-            self.add_light_source((25, 25))
+        for _ in range(3):
+            self.add_light_source(self.rnd_non_wall_space(self.layers[1]))
+            # self.add_light_source((25, 25))
 
     # ==== Updates ===========================================================
     def update(self, dt):
@@ -100,39 +135,46 @@ class Grid:
         self.draw_map()
 
     def update_agents(self, dt):
-        self.layers[2, 0] = 0
+        self.layers[2] = 0
         for agent in self.agents:
-            self.layers[2, 0, agent.xy[0], agent.xy[1]] = agent.id
+            self.layers[2, agent.xy[0], agent.xy[1]] = agent.id
             agent.glayers = self.layers
-            agent.update(dt)
+            agent.update(dt, self)
 
     def update_lights(self):
-        object_grid = self.layers[0, 2] + self.layers[2, 0]
-        self.layers[1, 1] = 0
+        object_grid = self.layers[1] + self.layers[2]
+        self.light_grid[:,:] = 0
         for l_source in self.light_sources:
-            self.layers[1, 1] += l_source.mk_light_grid(object_grid)
-            # workign w rays
-            self.rayz = l_source.RAYZ(object_grid, self.anchor,
-                                      self.batch, self.groups[2])
-        self.layers[1, 1] = np.clip(self.layers[1, 1], 0, 255)
+            self.light_colls = l_source.add_light(object_grid, self.light_grid)
+            x, y = l_source.xy
+            self.light_grid[x, y] = 1
+        self.light_grid = np.clip(self.light_grid, 0, 1)
 
     # ==== Drawing ===========================================================
     def draw_map(self):
-        # customise to parts of the grid
-        id_list = ((2, 0), (1, 1))
-        settings = (self.layers, self.rgbo_ref, id_list, (), self.terrain_rgbo)
-        rgbog = grid_rgbo.rgbog_mkr(*settings)
-        rgbog = grid_rgbo.set_brightness(rgbog, self.layers[1, 1], 0.009, 0.1)
-        self.light_rgbog = rgbog
-        self.g_vlist.colors = open_gl.grid_to_clist(self.all_xy, rgbog)
+        # get agents
+        l2_rgbo = grid_rgbo.idx_to_rgbo(
+            self.all_xy, 2, self.layers, self.rgbo_ref)
+        
+        # mix with terrain
+        rgbo_lists = np.array([self.terrain_rgbo_l, l2_rgbo])
+        mixed = grid_rgbo.mix_rgbo_lists(rgbo_lists)
+
+        # adjust brightness
+        grid_rgbo.set_list_brightness(
+            self.all_xy, mixed, self.light_grid)
+        
+        # send to Vertex List
+        self.clist = grid_rgbo.rgbo_list_to_clist(mixed)
+        self.g_vlist.colors = self.clist
 
     # ==== Adding Stuff =====================================================
     def add_agent(self, agent):
         self.agents.append(agent)
 
-    def add_light_source(self, xy, density=360):
-        self.light_sources.append(light.LightSource(xy, self, density))
-        self.layers[0, 2, xy[0], xy[1]] = 2
+    def add_light_source(self, xy):
+        self.light_sources.append(light.LightSource(xy, self))
+        self.layers[1, xy[0], xy[1]] = 2
 
     def add_sight_grid(self):
         self.sight_grids.append(senses.Sight_Grid(self))
@@ -160,29 +202,35 @@ class Grid:
         print(f"Imported: {filename}")
         return img_arr.T.astype(np.int64)
 
-    def init_grid(self, floor_file=None, layer_dims=(3, 4)):
+    def init_grid(self, floor_file=None, layer_dims=3):
         assert floor_file is not None, "Import a map image"
         self.imported_image = self.import_map_image(floor_file)
         self.dims = self.imported_image.shape
-        self.layers = np.zeros((*layer_dims, *self.dims), dtype='i8')
+        self.layers = np.zeros((layer_dims, *self.dims), dtype='i2')
         self.all_xy = grid_rgbo.get_xy_list(self.dims[0], self.dims[1])
 
     # ---- Vertex Lists ----
-    def mk_vlist(self, anchor, xy_list, group, cell_size,
-                 v_mode="v2i/static", c_mode="c4f/stream"):
-        vlist = self.batch.add(
-            len(xy_list)*6, pyglet.gl.GL_TRIANGLES, group, v_mode, c_mode)
-        vlist_vertices = open_gl.coords_to_v_list(
-            anchor, xy_list, cell_size)
-        vlist.vertices = vlist_vertices
-        return vlist
+    # def mk_vlist(self, anchor, xy_list, group, cell_size,
+    #              v_mode="v2i/static", c_mode="c4f/stream"):
+    #     vlist = self.batch.add(
+    #         len(xy_list)*6, pyglet.gl.GL_TRIANGLES, group, v_mode, c_mode)
+    #     vlist_vertices = open_gl.coords_to_v_list(
+    #         anchor, xy_list, cell_size)
+    #     vlist.vertices = vlist_vertices
+    #     return vlist
 
     # ---- RGBO ----
+    def make_terrain_rgbo(self):
+        self.terrain_rgbo_l = grid_rgbo.make_terrain_rgbo(
+            self.all_xy, (0, 1), self.layers, self.rgbo_ref)
+        self.clist = grid_rgbo.rgbo_list_to_clist(self.terrain_rgbo_l)
+
     def mk_terrain_rgbo(self):
-        id_list = ((0, 1), (0, 2))
-        rnd_idx = (0, 1)
+        id_list = (0, 1)
+        rnd_idx = (1,)
         settings = (self.layers, self.rgbo_ref, id_list, rnd_idx)
         self.terrain_rgbo = grid_rgbo.rgbog_mkr(*settings)
+    
 
 # % % UTILS % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % %
 

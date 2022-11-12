@@ -1,16 +1,17 @@
 import numpy as np
 from pyglet.window import key
 from src.game import senses
+from src.game import eyes
 
 class Creature:
-    def __init__(self, xy, grid, group, a_id, m_speed, u_speed=30):
+    def __init__(self, xy, grid, a_id, m_speed, u_speed=30):
         # grid
         self.GRID = grid
         self.glayers = grid.layers
         
         # pyglet setup
         self.batch = grid.batch
-        self.group = group
+        self.group = grid.groups[1]
 
         # movement
         self.xy = np.array(xy)
@@ -19,9 +20,6 @@ class Creature:
 
         # clock
         self.dt = 0
-        # self.clock = grid.clock
-        # self.clock.schedule_interval(self.update, 1/self.m_speed)
-        # self.clock.schedule_interval(self.move,   1/self.m_speed)
 
         # stats
         self.id = a_id
@@ -41,7 +39,8 @@ class Creature:
         self.touch = None
 
     # ==== Update ====
-    def update(self, dt):
+    def update(self, dt, grid):
+        self.GRID = grid
         if self.tick(dt, self.m_speed):
             self.update_senses()
             self.move()
@@ -67,7 +66,7 @@ class Creature:
                 self.xy += [1,0]
 
     def no_wall(self, xy):
-        if self.GRID.layers[0, 2, xy[0], xy[1]] == 0:
+        if self.GRID.layers[1, xy[0], xy[1]] == 0:
             return True
         else:
             return False
@@ -83,12 +82,14 @@ class Creature:
 # =========================================================================
 # =========================================================================
 class Toe(Creature):
-    def __init__(self, xy, grid, group):
-        super().__init__(xy, grid, group, a_id=1, m_speed=10, u_speed=100)
-        self.sight = senses.SightGrid(grid)
+    def __init__(self, xy, grid):
+        super().__init__(xy, grid, a_id=1, m_speed=10, u_speed=100)
+        # self.sight = senses.SightGrid(grid)
+        self.eyes = eyes.Eyes(grid)
     
     def update_senses(self):
-        self.sight.update(self.xy, self.glayers)
+        # self.sight.update(self.xy, self.glayers)
+        self.eyes.see_floor(self.xy, self.GRID)
 
 # =========================================================================
 class Ear(Creature):
