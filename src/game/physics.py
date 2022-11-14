@@ -17,8 +17,8 @@ def find_collisions(xy, radial, object_grid):
 class Radial:
     def __init__(self, xy, grid):
         self.xy = np.array(xy, dtype='i2')
-        # self.radial = discrete_lines.bresenham_radial(grid.dims)
         self.radial = discrete_geometry.rad_radial(grid.dims)
+        # self.radial = discrete_lines.bresenham_radial(grid.dims)
 
 
 

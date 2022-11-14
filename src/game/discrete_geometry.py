@@ -27,7 +27,7 @@ def box_index(max_x, max_y, xy_shift):
 # ==== RADIAL of BRESENHAM LINES =============================================
 
 def bresenham_radial(dims, mode="numba"):
-    radius = hypot(*dims)
+    radius = hypot(dims).astype("i2")
     ends = np.array(bresenham_circle(radius))
     # ends = np.array(b_circle(radius))
     starts = np.repeat(np.array([[0, 0]]), len(ends), axis=0)
@@ -38,7 +38,7 @@ def bresenham_radial(dims, mode="numba"):
     return lines
 
 def rad_radial(dims, density=360, mode="numba"):
-    radius = hypot(*dims)
+    radius = hypot(dims).astype("i2")
     rads = np.linspace(0, 2*np.pi, density, endpoint=False)
     start = np.repeat(np.array([[0, 0]]), len(rads), axis=0)
     ends = np.array((np.sin(rads), np.cos(rads))).T*radius
@@ -126,9 +126,11 @@ def bresenham_circle(r):
         points.extend(mirror_points_8(x, y))
     return list(set(points))
 
+def bresenham_circle_tweaked(radius):
+    return np.array(bresenham_circle_tweaked_(radius), dtype='i2')
 
 @njit(nogil=NOGIL_TOGGLE, cache=True)
-def bresenham_circle_tweaked(radius):
+def bresenham_circle_tweaked_(radius):
     """
     Taken from:
     https://funloop.org/post/2021-03-15-bresenham-circle-drawing-algorithm.html
@@ -223,5 +225,20 @@ def bresenham_numpy(start, end, max_iter=-1):
 
 # ==== MATH ==================================================================
 
-def hypot(x, y):
-    return np.sqrt(x**2 + y**2).astype("i8")
+def hypot(xy):
+    return np.sqrt(xy[0]**2 + xy[1]**2)
+
+@njit(cache=True)
+def distance(xy1, xy2):
+    return hypot(xy2-xy1)
+
+
+def box_index(max_x, max_y, xy_shift):
+    box = np.zeros((max_x * 2 + max_y * 2 - 4, 2), dtype='i8')
+    i = 0
+    for x in range(max_x):
+        for y in range(max_y):
+            if (x == 0) or (x == max_x-1) or (y == 0) or (y == max_y-1):
+                box[i] = [x, y]
+                i += 1
+    return box + xy_shift

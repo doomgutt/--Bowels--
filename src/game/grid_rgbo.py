@@ -14,31 +14,20 @@ class RGBOtools:
 
 # === RGBO REF ===============================================================
 def mk_rgbo_ref():
-    rgbo_ref = np.zeros((3, 256, 4), dtype='f8')
+    rgbo_ref = np.zeros((300, 4), dtype='f8')
     rgbo_ref[:, :] = [0, 0, 0, 0]
 
-    # --- basics ---
-    # rgbo_ref[0, 0, 0] = [0,   0,   0,   255]
-    # rgbo_ref[0, 0, 1] = [255, 0,   0,   255]
-    # rgbo_ref[0, 0, 2] = [0,   255, 0,   255]
-    # rgbo_ref[0, 0, 3] = [0,   0,   255, 255]
-    # rgbo_ref[0, 0, 4] = [255, 255, 255, 255]
+    # --- floor (1-99) --- 
+    rgbo_ref[1] = [60,  20,  10, 255]
 
-    # --- terrain ---
-    # floor
-    rgbo_ref[0, 0] = [60,  20,  10, 255]
+    # --- walls (100-199) ---
+    rgbo_ref[100] = [70,  70,  90, 255]
+    rgbo_ref[101] = [120, 120, 60, 255]
 
-    # walls
-    rgbo_ref[1, 0] = [0,   0,   0,  0]
-    rgbo_ref[1, 1] = [70,  70,  90, 255]
-    rgbo_ref[1, 2] = [120, 120, 60, 255]
-
-    # --- agents ---
-    rgbo_ref[2, 0] = [0,   0,   0,  0  ]
-    rgbo_ref[2, 1] = [100, 200, 0,  255]
-    rgbo_ref[2, 2] = [255, 0,   0,  255]
-    rgbo_ref[2, 3] = [0,   255, 0,  255]
-    
+    # --- agents (200-299) ---
+    rgbo_ref[200] = [100, 200, 0,  255]
+    rgbo_ref[201] = [255, 0,   0,  255]
+    rgbo_ref[202] = [0,   255, 0,  255]
 
     return rgbo_ref/255
 
@@ -90,7 +79,7 @@ def idx_to_rgbo(xy_idx, id_idx, layers, rgbo_ref):
     rgbo_vals = np.zeros((len(xy_idx), 4), dtype='f8')
     for i, xy in enumerate(xy_idx):
         x, y = xy
-        rgbo_vals[i] = rgbo_ref[id_idx, layers[id_idx, x, y]]
+        rgbo_vals[i] = rgbo_ref[layers[id_idx, x, y]]
     return rgbo_vals
 
 

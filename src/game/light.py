@@ -14,15 +14,26 @@ class LightSource(physics.Radial):
         super().__init__(*args, **kwargs)
 
     def add_light(self, object_grid, light_grid):
-        self._add_light(self.xy, self.radial, object_grid, light_grid)
+        return self._add_light(
+            self.xy, self.radial, object_grid, light_grid)
 
     @staticmethod
-    @njit
-    def _add_light(xy, radial, object_grid, light_grid, brightness=0.1):
-        cut_radial = radial.copy() + xy
-        collisions = np.zeros((len(radial), 2, 2))
+    @njit(nogil=NOGIL_TOGGLE, cache=True)
+    def _add_light(start_xy, radial, object_grid, light_grid, brightness=0.1):
+        """
+        Collision map:
+        coll[0] = [x, y] - start point
+        coll[1] = [x, y] - end point
+        coll[2] = [start_id, int(start_brightness*1000)]
+        """
+        br_mult = 1000
+        start_id = object_grid[start_xy[0], start_xy[1]]
+
+        cut_radial = radial.copy() + start_xy
+        collisions = np.zeros((len(radial), 3, 2), dtype='i2')
         for i, ray in enumerate(cut_radial):
-            collisions[i, 0] = ray[0]
+            collisions[i, 0] = start_xy
+            collisions[i, 2] = [start_id, int(brightness*br_mult)]
             for j, xy in enumerate(ray):
                 x, y = xy
                 if object_grid[x, y] != 0:

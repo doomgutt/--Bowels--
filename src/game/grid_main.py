@@ -1,54 +1,17 @@
 import numpy as np
-import pyglet
 from numba import njit
 from PIL import Image
-from src.game import senses
-from src.game import light
-from src.game import creatures
-from src.game import open_gl
 from src.game import grid_rgbo
-from src.game import discrete_geometry as dg
-
-"""
-Grid layers:
-0, 0       = technical stuff
-0, 1       = floor
-1       = walls
-1, [1 -10] = light
-1, [11-20] = smell
-1, [21-30] = sound
-2, 0       = agents
-"""
-
-""" Grid layers:
-0 - floor
-1 - walls
-2 - agents
-"""
-
+from src.game import open_gl
+from src.game import creatures
+from src.game import light
+from src.game import senses
 
 # === NUMBA SETUP ============
 PARALLEL_TOGGLE = False
 NOGIL_TOGGLE = True
 # ============================
 
-""" how it works
-INIT
-    init pyglet
-        clock
-        batch
-        groups
-    init grid
-        load map and make grid
-        init grbo map
-        init vertex list
-        init layers
-            init terrain
-            init agents
-            init senses
-UPDATE
-    
-"""
 
 # === GRID STUFF =============
 class Grid:
@@ -61,22 +24,11 @@ class Grid:
 
         Layers
         ------
-        layer 1: world
-        layer 2: characters
-
-        Variables:
-        ----------
-        self.cell_size
-        self.anchor
-        self.dims
-        self.layers
-        self.all_xy
-
-        self.agents
-        self.light_sources
-        self.sight_grids
-        self.g_vlist
+        0: terrain
+        1: walls
+        2: characters
         """
+
         # Init pyglet stuff
         self.batch = batch
         self.groups = groups
@@ -101,17 +53,11 @@ class Grid:
 
         # Init RGBO maps
         self.make_terrain_rgbo()
-        # self.mk_terrain_rgbo()
-
-        # testing
-        self.testingg()
-    
-    def testingg(self):
-        pass
 
     # ==== Initialising Objects ==============================================
     def init_terrain(self):
-        self.layers[1] = self.imported_image
+        self.layers[0][:] = 1
+        self.layers[1] = self.imported_image*100
 
     def init_agents(self):
         self.agents = []
@@ -123,13 +69,14 @@ class Grid:
         self.light_sources = []
         self.sight_grids = []
 
-        # xy_list = [(25, 25), (10, 40), (60, 30)]
-        for _ in range(3):
-            self.add_light_source(self.rnd_non_wall_space(self.layers[1]))
-            # self.add_light_source((25, 25))
+        xy_list = [(25, 25), (10, 40), (60, 30)]
+        for xy in xy_list:
+            # self.add_light_source(self.rnd_non_wall_space(self.layers[1]))
+            self.add_light_source(xy)
 
     # ==== Updates ===========================================================
     def update(self, dt):
+        self.object_grid = self.mk_object_grid(self.layers, (1, 2))
         self.update_lights()
         self.update_agents(dt)
         self.draw_map()
@@ -142,13 +89,48 @@ class Grid:
             agent.update(dt, self)
 
     def update_lights(self):
-        object_grid = self.layers[1] + self.layers[2]
         self.light_grid[:,:] = 0
+        self.light_colls = np.array([], dtype='i2').reshape(0, 3, 2)
         for l_source in self.light_sources:
-            self.light_colls = l_source.add_light(object_grid, self.light_grid)
-            x, y = l_source.xy
-            self.light_grid[x, y] = 1
+            colls = l_source.add_light(self.object_grid, self.light_grid)
+            self.light_colls = np.concatenate((self.light_colls, colls))
+            self.light_grid[l_source.xy[0], l_source.xy[1]] = 1
         self.light_grid = np.clip(self.light_grid, 0, 1)
+
+
+    # ==== Adding Stuff =====================================================
+    def add_agent(self, agent):
+        self.agents.append(agent)
+
+    def add_light_source(self, xy):
+        self.light_sources.append(light.LightSource(xy, self))
+        self.layers[1, xy[0], xy[1]] = 101
+
+    def add_sight_grid(self):
+        self.sight_grids.append(senses.Sight_Grid(self))
+
+    # ==== Utility ===========================================================
+    @staticmethod
+    @njit(nogil=NOGIL_TOGGLE, cache=True)
+    def mk_object_grid(layers, layer_idxs):
+        object_grid = np.zeros_like(layers[0])
+        for idx in layer_idxs:
+            for x, row in enumerate(layers[idx]):
+                for y, entry in enumerate(row):
+                    if entry != 0:
+                        object_grid[x, y] = entry
+        return object_grid
+    
+    @staticmethod
+    @njit(nogil=NOGIL_TOGGLE, cache=True)
+    def rnd_non_wall_space(wall_grid):
+        shift = 3
+        wall_check = True
+        while wall_check:
+            x = np.random.randint(shift, len(wall_grid)    - shift)
+            y = np.random.randint(shift, len(wall_grid[1]) - shift)
+            wall_check = (wall_grid[x, y] < 100)
+        return (x, y)
 
     # ==== Drawing ===========================================================
     def draw_map(self):
@@ -168,31 +150,8 @@ class Grid:
         self.clist = grid_rgbo.rgbo_list_to_clist(mixed)
         self.g_vlist.colors = self.clist
 
-    # ==== Adding Stuff =====================================================
-    def add_agent(self, agent):
-        self.agents.append(agent)
-
-    def add_light_source(self, xy):
-        self.light_sources.append(light.LightSource(xy, self))
-        self.layers[1, xy[0], xy[1]] = 2
-
-    def add_sight_grid(self):
-        self.sight_grids.append(senses.Sight_Grid(self))
-
-    # --- utility ---
-    @staticmethod
-    @njit(nogil=NOGIL_TOGGLE, cache=True)
-    def rnd_non_wall_space(wall_grid):
-        shift = 3
-        wall_check = True
-        while wall_check:
-            x = np.random.randint(shift, len(wall_grid)    - shift)
-            y = np.random.randint(shift, len(wall_grid[1]) - shift)
-            wall_check = (wall_grid[x, y] != 0)
-        return (x, y)
 
     # ==== SETUP =============================================================
-    # --- Making the grid ---
     def import_map_image(self, filename):
         dir_str = "./assets/maps/floors/"
         filepath = dir_str + filename
@@ -209,27 +168,10 @@ class Grid:
         self.layers = np.zeros((layer_dims, *self.dims), dtype='i2')
         self.all_xy = grid_rgbo.get_xy_list(self.dims[0], self.dims[1])
 
-    # ---- Vertex Lists ----
-    # def mk_vlist(self, anchor, xy_list, group, cell_size,
-    #              v_mode="v2i/static", c_mode="c4f/stream"):
-    #     vlist = self.batch.add(
-    #         len(xy_list)*6, pyglet.gl.GL_TRIANGLES, group, v_mode, c_mode)
-    #     vlist_vertices = open_gl.coords_to_v_list(
-    #         anchor, xy_list, cell_size)
-    #     vlist.vertices = vlist_vertices
-    #     return vlist
-
-    # ---- RGBO ----
     def make_terrain_rgbo(self):
         self.terrain_rgbo_l = grid_rgbo.make_terrain_rgbo(
             self.all_xy, (0, 1), self.layers, self.rgbo_ref)
         self.clist = grid_rgbo.rgbo_list_to_clist(self.terrain_rgbo_l)
-
-    def mk_terrain_rgbo(self):
-        id_list = (0, 1)
-        rnd_idx = (1,)
-        settings = (self.layers, self.rgbo_ref, id_list, rnd_idx)
-        self.terrain_rgbo = grid_rgbo.rgbog_mkr(*settings)
     
 
 # % % UTILS % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % %

@@ -7,12 +7,7 @@ class Creature:
     def __init__(self, xy, grid, a_id, m_speed, u_speed=30):
         # grid
         self.GRID = grid
-        self.glayers = grid.layers
         
-        # pyglet setup
-        self.batch = grid.batch
-        self.group = grid.groups[1]
-
         # movement
         self.xy = np.array(xy)
         self.m_speed = m_speed
@@ -33,10 +28,10 @@ class Creature:
             "right": key.RIGHT}
 
         # senses
-        self.sight = None
-        self.hearing = None
-        self.smell = None
-        self.touch = None
+        self.eyes = None
+        self.ears = None
+        self.noses = None
+        self.skin = None
 
     # ==== Update ====
     def update(self, dt, grid):
@@ -80,28 +75,25 @@ class Creature:
 
 
 # =========================================================================
-# =========================================================================
 class Toe(Creature):
     def __init__(self, xy, grid):
-        super().__init__(xy, grid, a_id=1, m_speed=10, u_speed=100)
-        # self.sight = senses.SightGrid(grid)
+        super().__init__(xy, grid, a_id=200, m_speed=10, u_speed=100)
         self.eyes = eyes.Eyes(grid)
     
     def update_senses(self):
-        # self.sight.update(self.xy, self.glayers)
-        self.eyes.see_floor(self.xy, self.GRID)
+        self.eyes.see(self.xy, self.GRID)
 
-# =========================================================================
+# -------------------------------------------------------------------------
 class Ear(Creature):
-    def __init__(self, xy, grid, group):
-        super().__init__(xy, grid, group, a_id=2, m_speed=20, u_speed=100)
+    def __init__(self, xy, grid):
+        super().__init__(xy, grid, a_id=201, m_speed=20, u_speed=100)
 
-# =========================================================================
+# -------------------------------------------------------------------------
 class Nose(Creature):
-    def __init__(self, xy, grid, group):
-        super().__init__(xy, grid, group, a_id=3, m_speed=4, u_speed=100)
+    def __init__(self, xy, grid):
+        super().__init__(xy, grid, a_id=202, m_speed=4, u_speed=100)
 
-# =========================================================================
+# -------------------------------------------------------------------------
 
 
 
