@@ -1,6 +1,5 @@
 import numpy as np
 from numba import njit
-from src.game import physics
 from src.game import grid_rgbo
 from src.game import open_gl
 from src.game import discrete_geometry as dg
@@ -51,7 +50,6 @@ class Eyes:
     def see_far(self, xy, grid):
         rgbo_list = self.hit_lights(
             xy, self.far_idx, grid.light_colls, grid.rgbo_ref)
-        # print(rgbo_list)
         clist = grid_rgbo.rgbo_list_to_clist(rgbo_list)
         self.far_vlist.colors = clist
 
@@ -69,21 +67,28 @@ class Eyes:
             end_xy = coll[1]
             if (end_xy==xy).all():
                 g_id, br = coll[2]
-                rgbo = rgbo_ref[g_id]
-
-                closest_idx = closest_sight_tile_idx(xy_list+xy, coll[0], 3)
+                rgbo = rgbo_ref[g_id].copy()
+                closest_idx = colls_to_fsight(xy, xy_list, coll[0], 5)
                 for i, idx in enumerate(closest_idx):
-                    adjust = 1 if i == 0 else 0.2
-                    rgbo[-1] = (br/1000)*br_mod*adjust
+                    rgbo[-1] = (br/1000)*br_mod*focus_adjust(i)
                     mixed = grid_rgbo.mix_2_rgbo_vals(rgbo_list[idx], rgbo)
                     rgbo_list[idx] = mixed
         return np.clip(rgbo_list, 0, 1)
 
 @njit(nogil=True, cache=True)
-def closest_sight_tile_idx(xy_list, coll_xy, n=3):
-    d = (coll_xy - xy_list).T
+def colls_to_fsight(xy, xy_list, coll_xy, n=3):
+    a_xy_list = xy_list+xy
+    d = (coll_xy - a_xy_list).T
     dists = np.sqrt(d[0]**2 + d[1]**2)
     return np.argsort(dists)[:n]
 
-
-
+@njit(nogil=True, cache=True)
+def focus_adjust(i):
+    adjust = 0
+    if i == 0:
+        adjust = 1
+    elif 0 < i <= 2:
+        adjust = 0.2
+    elif 2 < i:
+        adjust = 0.05
+    return adjust 
