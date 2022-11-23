@@ -48,7 +48,7 @@ class Eyes:
     
     # --- Far ----------------------------------------------------------------
     def see_far(self, xy, grid):
-        rgbo_list = self.hit_lights(
+        rgbo_list = far_sight_list(
             xy, self.far_idx, grid.light_colls, grid.rgbo_ref)
         clist = grid_rgbo.rgbo_list_to_clist(rgbo_list)
         self.far_vlist.colors = clist
@@ -58,27 +58,30 @@ class Eyes:
         self.far_vlist = open_gl.mk_vlist(
             anchor, cell_size, self.far_idx, batch, group)
     
-    # --- collision stuff
-    @staticmethod
-    @njit(nogil=True, cache=True)
-    def hit_lights(xy, xy_list, light_colls, rgbo_ref, br_mod=1):
-        rgbo_list = np.zeros((len(xy_list), 4), dtype='f8')
-        for coll in light_colls:
-            end_xy = coll[1]
-            if (end_xy==xy).all():
-                g_id, br = coll[2]
-                rgbo = rgbo_ref[g_id].copy()
-                closest_idx = colls_to_fsight(xy, xy_list, coll[0], 5)
-                for i, idx in enumerate(closest_idx):
-                    rgbo[-1] = (br/1000)*br_mod*focus_adjust(i)
-                    mixed = grid_rgbo.mix_2_rgbo_vals(rgbo_list[idx], rgbo)
-                    rgbo_list[idx] = mixed
-        return np.clip(rgbo_list, 0, 1)
+# --- Far Sight Calculations ----------------------------
+@njit(nogil=True, cache=True)
+def far_sight_list(xy, xy_list, light_colls, rgbo_ref, br_mod=1):
+    rgbo_list = np.zeros((len(xy_list), 4), dtype='f8')
+    for coll in light_colls:
+        end_xy = coll[1]
+        if (end_xy==xy).all():
+            g_id, br = coll[2]
+            br = (br*br_mod)/1000
+            rgbo = rgbo_ref[g_id].copy()
+            closest_idx = closest_indices(xy+xy_list, coll[0], 5)
+            update_rgbo_list(closest_idx, rgbo, br, rgbo_list)
+    return np.clip(rgbo_list, 0, 1)
 
 @njit(nogil=True, cache=True)
-def colls_to_fsight(xy, xy_list, coll_xy, n=3):
-    a_xy_list = xy_list+xy
-    d = (coll_xy - a_xy_list).T
+def update_rgbo_list(closest_idx, rgbo, br, rgbo_list):
+    for i, idx in enumerate(closest_idx):
+        rgbo[-1] = br*focus_adjust(i)
+        mixed = grid_rgbo.mix_2_rgbo_vals(rgbo_list[idx], rgbo)
+        rgbo_list[idx] = mixed
+
+@njit(nogil=True, cache=True)
+def closest_indices(coll_xy_list, coll_xy, n=3):
+    d = (coll_xy - coll_xy_list).T
     dists = np.sqrt(d[0]**2 + d[1]**2)
     return np.argsort(dists)[:n]
 
