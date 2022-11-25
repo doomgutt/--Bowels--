@@ -1,7 +1,7 @@
 import numpy as np
 from pyglet.window import key
-from src.game import senses
-from src.game import eyes
+from src.game.senses import eyes
+from src.game.senses import ears
 
 class Creature:
     def __init__(self, xy, grid, a_id, m_speed, u_speed=30):
@@ -9,6 +9,7 @@ class Creature:
         self.GRID = grid
         
         # movement
+        self.moving = False
         self.xy = np.array(xy)
         self.m_speed = m_speed
         self.u_speed = u_speed
@@ -46,17 +47,22 @@ class Creature:
 
     # ==== Moving ====
     def move(self):
+        self.moving = False
         if self.key_handler[self.controls["up"]]:  # up
+            self.moving = True
             if self.no_wall(self.xy+[0,1]):
                 self.xy += [0,1]
         elif self.key_handler[self.controls["down"]]:  # down
+            self.moving = True
             if self.no_wall(self.xy-[0,1]):
                 self.xy -= [0,1]
 
         if self.key_handler[self.controls["left"]]:  # left
+            self.moving = True
             if self.no_wall(self.xy-[1,0]):
                 self.xy -= [1,0]
         elif self.key_handler[self.controls["right"]]:  # right
+            self.moving = True
             if self.no_wall(self.xy+[1,0]):
                 self.xy += [1,0]
 
@@ -75,10 +81,15 @@ class Creature:
 
 
 # =========================================================================
-class Toe(Creature):
+class Eye(Creature):
     def __init__(self, xy, grid):
         super().__init__(xy, grid, a_id=200, m_speed=10, u_speed=100)
-        self.eyes = eyes.Eyes(grid)
+        self.eyes = eyes.Eyes(grid, anchor=(4, 4))
+        self.controls = {
+            "up"   : key.W, 
+            "down" : key.S, 
+            "left" : key.A, 
+            "right": key.D}
     
     def update_senses(self):
         self.eyes.see(self.xy, self.GRID)
@@ -87,6 +98,10 @@ class Toe(Creature):
 class Ear(Creature):
     def __init__(self, xy, grid):
         super().__init__(xy, grid, a_id=201, m_speed=20, u_speed=100)
+        self.ears = ears.Ears(grid, anchor=(10, 4))
+    
+    def update_senses(self):
+        self.ears.see(self.xy, self.GRID)
 
 # -------------------------------------------------------------------------
 class Nose(Creature):

@@ -4,8 +4,8 @@ from PIL import Image
 from src.game import grid_rgbo
 from src.game import open_gl
 from src.game import creatures
-from src.game import light
-from src.game import senses
+from src.game.physics import light
+from src.game.physics import sound
 
 # === NUMBA SETUP ============
 PARALLEL_TOGGLE = False
@@ -34,7 +34,7 @@ class Grid:
         self.groups = groups
         self.clock = clock
         fps = 60
-        clock.schedule_interval(self.update, 1/60)
+        clock.schedule_interval(self.update, 1/fps)
 
         # Init grid
         self.cell_size = cell_size
@@ -50,6 +50,7 @@ class Grid:
         self.init_terrain()
         self.init_agents()
         self.init_light()
+        self.init_sound()
 
         # Init RGBO maps
         self.make_terrain_rgbo()
@@ -61,23 +62,27 @@ class Grid:
 
     def init_agents(self):
         self.agents = []
-        self.add_agent(creatures.Toe((30, 30), self))
+        self.add_agent(creatures.Eye((30, 30), self))
+        self.add_agent(creatures.Ear((40, 40), self))
 
     def init_light(self):
         self.light_rgbo = np.array([200, 200, 100, 0], dtype='i2')/255
         self.light_grid = np.zeros(self.layers[0].shape, dtype='f8')
         self.light_sources = []
-        self.sight_grids = []
 
         xy_list = [(25, 25), (10, 40), (60, 30)]
         for xy in xy_list:
             # self.add_light_source(self.rnd_non_wall_space(self.layers[1]))
             self.add_light_source(xy)
 
+    def init_sound(self):
+        self.sound = sound.SoundTracker(self)
+
     # ==== Updates ===========================================================
     def update(self, dt):
         self.object_grid = self.mk_object_grid(self.layers, (1, 2))
         self.update_lights()
+        self.update_sounds(dt)
         self.update_agents(dt)
         self.draw_map()
 
@@ -97,6 +102,8 @@ class Grid:
             self.light_grid[l_source.xy[0], l_source.xy[1]] = 1
         self.light_grid = np.clip(self.light_grid, 0, 1)
 
+    def update_sounds(self, dt):
+        self.sound.update(dt, self)
 
     # ==== Adding Stuff =====================================================
     def add_agent(self, agent):
@@ -105,9 +112,6 @@ class Grid:
     def add_light_source(self, xy):
         self.light_sources.append(light.LightSource(xy, self))
         self.layers[1, xy[0], xy[1]] = 101
-
-    def add_sight_grid(self):
-        self.sight_grids.append(senses.Sight_Grid(self))
 
     # ==== Utility ===========================================================
     @staticmethod

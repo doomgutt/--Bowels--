@@ -10,9 +10,8 @@ NOGIL_TOGGLE = True
 # ============================
 
 
-class Eyes:
-    def __init__(self, grid):
-        anchor = (4, 4)
+class Ears:
+    def __init__(self, grid, anchor):
         ui_size_mult = 2
         grid_info = (grid.cell_size*ui_size_mult, grid.batch, grid.groups[2])
         self.mk_self_vlist(anchor, *grid_info)
@@ -45,7 +44,7 @@ class Eyes:
         self.floor_idx = dg.bresenham_circle_tweaked(1)
         self.floor_vlist = open_gl.mk_vlist(
             anchor, cell_size, self.floor_idx, batch, group)
-    
+
     # --- Far ----------------------------------------------------------------
     def see_far(self, xy, grid):
         rgbo_list = far_sight_list(
@@ -57,20 +56,23 @@ class Eyes:
         self.far_idx = dg.bresenham_circle_tweaked(2)
         self.far_vlist = open_gl.mk_vlist(
             anchor, cell_size, self.far_idx, batch, group)
-    
+
 # --- Far Sight Calculations ----------------------------
+
+
 @njit(nogil=True, cache=True)
 def far_sight_list(xy, xy_list, light_colls, rgbo_ref, br_mod=1):
     rgbo_list = np.zeros((len(xy_list), 4), dtype='f8')
     for coll in light_colls:
         end_xy = coll[1]
-        if (end_xy==xy).all():
+        if (end_xy == xy).all():
             g_id, br = coll[2]
             br = (br*br_mod)/1000
             rgbo = rgbo_ref[g_id].copy()
             closest_idx = closest_indices(xy+xy_list, coll[0], 5)
             update_rgbo_list(closest_idx, rgbo, br, rgbo_list)
     return np.clip(rgbo_list, 0, 1)
+
 
 @njit(nogil=True, cache=True)
 def update_rgbo_list(closest_idx, rgbo, br, rgbo_list):
@@ -79,11 +81,13 @@ def update_rgbo_list(closest_idx, rgbo, br, rgbo_list):
         mixed = grid_rgbo.mix_2_rgbo_vals(rgbo_list[idx], rgbo)
         rgbo_list[idx] = mixed
 
+
 @njit(nogil=True, cache=True)
 def closest_indices(coll_xy_list, coll_xy, n=3):
     d = (coll_xy - coll_xy_list).T
     dists = np.sqrt(d[0]**2 + d[1]**2)
     return np.argsort(dists)[:n]
+
 
 @njit(nogil=True, cache=True)
 def focus_adjust(i):
@@ -94,4 +98,4 @@ def focus_adjust(i):
         adjust = 0.2
     elif 2 < i:
         adjust = 0.05
-    return adjust 
+    return adjust

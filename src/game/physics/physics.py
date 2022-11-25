@@ -1,24 +1,17 @@
 import numpy as np
 from numba import njit, prange
-from src.game import discrete_geometry
+from src.game import discrete_geometry as dg
 
 # === NUMBA SETUP ============
 PARALLEL_TOGGLE = False
 NOGIL_TOGGLE = True
 # ============================
 
-
-@njit(nogil=NOGIL_TOGGLE, cache=True)
-def find_collisions(xy, radial, object_grid):
-    pass
-
-
-
-class Radial:
-    def __init__(self, xy, grid):
-        self.xy = np.array(xy, dtype='i2')
-        self.radial = discrete_geometry.rad_radial(grid.dims)
-        # self.radial = discrete_lines.bresenham_radial(grid.dims)
+# class Radial:
+#     def __init__(self, xy, grid):
+#         self.xy = np.array(xy, dtype='i2')
+#         self.radial = dg.rad_radial(grid.dims)
+        # self.radial = dg.bresenham_radial(grid.dims)
 
 
 

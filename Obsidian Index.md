@@ -1,8 +1,8 @@
 # Notes
-[[Features]]
-[[MVP]]
+[[10.02 - Features]]
+[[10.03 - MVP]]
 
 
 # Priorities
-- get the [[MVP]]
+- get the [[10.03 - MVP]]
 

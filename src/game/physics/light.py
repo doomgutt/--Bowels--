@@ -1,7 +1,6 @@
 import numpy as np
-import pyglet
-from numba import njit, prange
-from src.game import physics
+from numba import njit
+from src.game import discrete_geometry as dg
 
 # === NUMBA SETUP ============
 PARALLEL_TOGGLE = False
@@ -9,9 +8,10 @@ NOGIL_TOGGLE = True
 # ============================
 
 
-class LightSource(physics.Radial):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+class LightSource():
+    def __init__(self, xy, grid):
+        self.xy = np.array(xy, dtype='i2')
+        self.radial = dg.rad_radial(grid.dims)
 
     def add_light(self, object_grid, light_grid):
         return self._add_light(
