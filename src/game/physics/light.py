@@ -7,6 +7,24 @@ PARALLEL_TOGGLE = False
 NOGIL_TOGGLE = True
 # ============================
 
+class LightTracker():
+    def __init__(self, grid):
+
+        self.light_rgbo = np.array([200, 200, 100, 0], dtype='i2')/255
+        self.light_grid = np.zeros(grid.layers[0].shape, dtype='f8')
+        self.light_sources = []
+
+    def update(self, grid):
+        self.light_grid[:,:] = 0
+        self.light_colls = np.array([], dtype='i2').reshape(0, 3, 2)
+        for l_source in self.light_sources:
+            colls = l_source.add_light(grid.object_grid, self.light_grid)
+            self.light_colls = np.concatenate((self.light_colls, colls))
+        self.light_grid = np.clip(self.light_grid, 0, 1)
+
+    def add_light_source(self, xy, grid):
+        self.light_sources.append(LightSource(xy, grid))
+        grid.layers[1, xy[0], xy[1]] = 101
 
 class LightSource():
     def __init__(self, xy, grid):
@@ -14,8 +32,8 @@ class LightSource():
         self.radial = dg.rad_radial(grid.dims)
 
     def add_light(self, object_grid, light_grid):
-        return self._add_light(
-            self.xy, self.radial, object_grid, light_grid)
+        return self._add_light(self.xy, self.radial, object_grid, light_grid) 
+        
 
     @staticmethod
     @njit(nogil=NOGIL_TOGGLE, cache=True)
@@ -28,6 +46,7 @@ class LightSource():
         """
         br_mult = 1000
         start_id = object_grid[start_xy[0], start_xy[1]]
+        light_grid[start_xy[0], start_xy[1]] = 1
 
         cut_radial = radial.copy() + start_xy
         collisions = np.zeros((len(radial), 3, 2), dtype='i2')
@@ -41,6 +60,7 @@ class LightSource():
                     collisions[i, 1] = xy
                     break
                 light_grid[x, y] += brightness
+        
         return collisions
 
 

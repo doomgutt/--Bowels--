@@ -44,7 +44,7 @@ def grid_to_clist(xy_list, layer_idxs, grid):
         mixed = mix_rgbo_lists(rgbo_lists)
 
         # adjust brightness
-        set_list_brightness(xy_list, mixed, grid.light_grid)
+        set_list_brightness(xy_list, mixed, grid.light_tracker.light_grid)
         
         # send to Vertex List
         return rgbo_list_to_clist(mixed)

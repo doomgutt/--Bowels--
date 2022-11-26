@@ -48,7 +48,7 @@ class Ears:
     # --- Far ----------------------------------------------------------------
     def see_far(self, xy, grid):
         rgbo_list = far_sight_list(
-            xy, self.far_idx, grid.light_colls, grid.rgbo_ref)
+            xy, self.far_idx, grid.light_tracker.light_colls, grid.rgbo_ref)
         clist = grid_rgbo.rgbo_list_to_clist(rgbo_list)
         self.far_vlist.colors = clist
 

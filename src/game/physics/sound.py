@@ -14,13 +14,15 @@ NOGIL_TOGGLE = True
 
 class SoundTracker():
     def __init__(self, grid):
+        self.sound_grid = np.zeros(grid.layers[0].shape, dtype='f8')
         self.radial = dg.rad_radial(grid.dims)
         self.sound_speed = 1
         self.dt = 0
 
     def update(self, dt, grid):
+        self.sound_grid[:,:] = 0
         # mv_coords = self.get_movement_coords(grid)
-        if self.tick(dt, self.m_speed):
+        if self.tick(dt, self.sound_speed):
             self.move_sounds()
 
     def move_sounds(self):
@@ -39,12 +41,3 @@ class SoundTracker():
             self.dt = 0
             return True
         return False
-
-    # def add_light(self, object_grid, light_grid):
-    #     return self._add_light(
-    #         self.xy, self.radial, object_grid, light_grid)
-
-    # @staticmethod
-    # @njit(nogil=NOGIL_TOGGLE, cache=True)
-    # def _add_light(start_xy, radial, object_grid, light_grid, brightness=0.1):
-    #     pass

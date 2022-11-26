@@ -6,6 +6,7 @@ from src.game import open_gl
 from src.game import creatures
 from src.game.physics import light
 from src.game.physics import sound
+import main
 
 # === NUMBA SETUP ============
 PARALLEL_TOGGLE = False
@@ -66,14 +67,11 @@ class Grid:
         self.add_agent(creatures.Ear((40, 40), self))
 
     def init_light(self):
-        self.light_rgbo = np.array([200, 200, 100, 0], dtype='i2')/255
-        self.light_grid = np.zeros(self.layers[0].shape, dtype='f8')
-        self.light_sources = []
-
+        self.light_tracker = light.LightTracker(self)
         xy_list = [(25, 25), (10, 40), (60, 30)]
         for xy in xy_list:
             # self.add_light_source(self.rnd_non_wall_space(self.layers[1]))
-            self.add_light_source(xy)
+            self.light_tracker.add_light_source(xy, self)
 
     def init_sound(self):
         self.sound = sound.SoundTracker(self)
@@ -81,8 +79,8 @@ class Grid:
     # ==== Updates ===========================================================
     def update(self, dt):
         self.object_grid = self.mk_object_grid(self.layers, (1, 2))
-        self.update_lights()
-        self.update_sounds(dt)
+        self.light_tracker.update(self)
+        self.sound.update(dt, self)
         self.update_agents(dt)
         self.draw_map()
 
@@ -92,18 +90,6 @@ class Grid:
             self.layers[2, agent.xy[0], agent.xy[1]] = agent.id
             agent.glayers = self.layers
             agent.update(dt, self)
-
-    def update_lights(self):
-        self.light_grid[:,:] = 0
-        self.light_colls = np.array([], dtype='i2').reshape(0, 3, 2)
-        for l_source in self.light_sources:
-            colls = l_source.add_light(self.object_grid, self.light_grid)
-            self.light_colls = np.concatenate((self.light_colls, colls))
-            self.light_grid[l_source.xy[0], l_source.xy[1]] = 1
-        self.light_grid = np.clip(self.light_grid, 0, 1)
-
-    def update_sounds(self, dt):
-        self.sound.update(dt, self)
 
     # ==== Adding Stuff =====================================================
     def add_agent(self, agent):
@@ -148,7 +134,7 @@ class Grid:
 
         # adjust brightness
         grid_rgbo.set_list_brightness(
-            self.all_xy, mixed, self.light_grid)
+            self.all_xy, mixed, self.light_tracker.light_grid)
         
         # send to Vertex List
         self.clist = grid_rgbo.rgbo_list_to_clist(mixed)
@@ -176,7 +162,9 @@ class Grid:
         self.terrain_rgbo_l = grid_rgbo.make_terrain_rgbo(
             self.all_xy, (0, 1), self.layers, self.rgbo_ref)
         self.clist = grid_rgbo.rgbo_list_to_clist(self.terrain_rgbo_l)
-    
+
+if __name__ == '__main__':
+    main.run_game()
 
 # % % UTILS % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % %
 
