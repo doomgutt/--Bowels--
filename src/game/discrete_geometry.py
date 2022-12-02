@@ -242,3 +242,38 @@ def box_index(max_x, max_y, xy_shift):
                 box[i] = [x, y]
                 i += 1
     return box + xy_shift
+
+# ==== stuf ==================================================================
+
+def bline_reflect(origin_xy, bline, coll_i):
+    # exclude adjacen reflections
+    if coll_i == 0:
+        return None
+    # calc whether y or x is bigger change
+    coll_xy = bline[coll_i]
+    diff = coll_xy - origin_xy
+    max_dim = np.argmax(np.abs(diff))
+    # see if prev change is same as bigger change
+    coll_diff = np.abs(coll_xy - bline[coll_i-1])
+    
+    reflect = np.array([1, 1])
+    if coll_diff[max_dim] == 0:
+        # if same then reflect opposite
+        reflect *= [1, -1]
+    else:
+        # if not then glance reflect
+        reflect *= [-1, 1]
+    new_bline = (bline[:coll_i] - origin_xy)*reflect + \
+        coll_xy*[1, 0]*2 - origin_xy*[1,0] + origin_xy*[0, 1]
+    return new_bline
+
+
+
+
+if __name__ == "__main__":
+    origin_xy = np.array((10,10))
+    coll_xy = np.array((15,11))
+    bline = bresenham_numba(origin_xy[None], coll_xy[None])
+    bline = bline[0]
+    coll_i = len(bline)-2
+    bline_reflect(origin_xy, bline, coll_i)

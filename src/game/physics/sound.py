@@ -41,3 +41,13 @@ class SoundTracker():
             self.dt = 0
             return True
         return False
+
+class SoundBeam():
+    def __init__(self, origin):
+        self.origin = np.array(origin)
+        self.b_line = None
+    
+    def update(object_grid):
+
+        pass
+
