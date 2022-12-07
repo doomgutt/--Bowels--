@@ -74,13 +74,13 @@ class Grid:
             self.light_tracker.add_light_source(xy, self)
 
     def init_sound(self):
-        self.sound = sound.SoundTracker(self)
+        self.sound_tracker = sound.SoundTracker(self)
 
     # ==== Updates ===========================================================
     def update(self, dt):
         self.object_grid = self.mk_object_grid(self.layers, (1, 2))
         self.light_tracker.update(self)
-        self.sound.update(dt, self)
+        self.sound_tracker.update(dt, self)
         self.update_agents(dt)
         self.draw_map()
 
@@ -135,6 +135,10 @@ class Grid:
         # adjust brightness
         grid_rgbo.set_list_brightness(
             self.all_xy, mixed, self.light_tracker.light_grid)
+        
+        # layer sound
+        grid_rgbo.replace_list_vals(self.all_xy, mixed,
+            self.sound_tracker.sound_grid, self.sound_tracker.sound_rgbo)
         
         # send to Vertex List
         self.clist = grid_rgbo.rgbo_list_to_clist(mixed)

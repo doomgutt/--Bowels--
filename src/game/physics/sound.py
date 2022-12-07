@@ -18,10 +18,13 @@ class SoundTracker():
         self.radial = dg.rad_radial(grid.dims)
         self.sound_speed = 1
         self.dt = 0
+        self.sound_rgbo = np.array([0.8, 0.8, 0.8, 1])
 
     def update(self, dt, grid):
         self.sound_grid[:,:] = 0
-        # mv_coords = self.get_movement_coords(grid)
+        mv_coords = self.get_movement_coords(grid)
+        for xy in mv_coords:
+            self.sound_grid[xy[0], xy[1]] = 1
         if self.tick(dt, self.sound_speed):
             self.move_sounds()
 

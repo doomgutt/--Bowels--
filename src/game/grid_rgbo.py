@@ -82,6 +82,14 @@ def idx_to_rgbo(xy_idx, id_idx, layers, rgbo_ref):
         rgbo_vals[i] = rgbo_ref[layers[id_idx, x, y]]
     return rgbo_vals
 
+@njit(nogil=NOGIL_TOGGLE, parallel=PARALLEL_TOGGLE, cache=True)
+def replace_list_vals(xy_idx, rgbo_list, repl_grid, rgbo):
+    for i, xy in enumerate(xy_idx):
+        x, y = xy
+        if repl_grid[x, y] != 0:
+            rgbo_list[i] = repl_grid[x, y]*rgbo
+    np.clip(rgbo_list, 0, 1)
+
 
 @njit(nogil=NOGIL_TOGGLE, parallel=PARALLEL_TOGGLE, cache=True)
 def set_list_brightness(xy_idx, rgbo_list, light_grid):

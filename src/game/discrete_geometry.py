@@ -234,7 +234,7 @@ def distance(xy1, xy2):
 
 
 def box_index(max_x, max_y, xy_shift):
-    box = np.zeros((max_x * 2 + max_y * 2 - 4, 2), dtype='i8')
+    box = np.zeros((max_x * 2 + max_y * 2 - 4, 2), dtype='i2')
     i = 0
     for x in range(max_x):
         for y in range(max_y):
@@ -267,7 +267,13 @@ def bline_reflect(origin_xy, bline, coll_i):
         coll_xy*[1, 0]*2 - origin_xy*[1,0] + origin_xy*[0, 1]
     return new_bline
 
+def tick_radial(idx, blines):
+    for line in blines:
+        pass
+    pass
 
+def collision_new_line():
+    pass
 
 
 if __name__ == "__main__":
@@ -277,3 +283,37 @@ if __name__ == "__main__":
     bline = bline[0]
     coll_i = len(bline)-2
     bline_reflect(origin_xy, bline, coll_i)
+
+class SoundSource():
+    def __init__(self):
+        self.origin = (0, 0)
+        self.radial = None
+        self.lines = None
+        self.current_vals = np.zeros((len(self.radial), 2, 2), dtype='i2')
+        self.indices = np.zeros(len(self.radial), dtype='i2')
+        self.reflections = np.zeros(len(self.radial), dtype='i2')
+        self.max_reflections = 3
+    
+    def move_sound(self):
+        for i, line in enumerate(self.lines):
+            if self.reflections[i] == self.max_reflections:
+                done_check = True
+                continue
+            done_check = False
+            collisions = self.check_collision(line[self.indices[i]])
+            if collisions:
+                self.indices[i] = 0
+                self.reflections[i] +=1
+                # set collision ID or smthn.
+                    # self.current_vals[i, ]
+            else:
+                self.indices[i] += 1
+
+
+
+    def check_collision(self):
+        return None
+
+# take the radial
+# at every step check the next step in the lines
+#
